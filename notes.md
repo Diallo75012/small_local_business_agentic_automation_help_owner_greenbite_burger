@@ -89,3 +89,56 @@
 - Validate order items against the menu in cache.
 - Register valid orders in the database.
 - Send notifications via Discord.
+
+
+# Python-MemCached
+```python
+import memcache
+
+
+# Connecting to Memcached
+mc = memcache.Client(['127.0.0.1:11211'], debug=1)
+# how to get value:
+mc.get("<Your_cache_key>")
+# how to set key/value pairs
+mc.set("<Your_cache_key>", "<Your_cache_value>", time=<how long in second do we keep it in cache in seconds>)
+```
+
+# flask-pgsql
+We have chosen to use this library this time to make a standalone connection to `postgresql`
+- How to use:
+```python
+# example creating tables (need to create the models first)
+db.create_all()
+# or you can recreate any special table
+# USERS.create()
+# BLOGS.create()
+
+# example query
+users = USERS.query.all()
+user = USERS.query.get(id=12)
+
+# example adding data
+new_user = USERS(username="example_user")
+db.session.add(new_user)
+db.session.commit()
+
+# example deleting Data
+user_to_delete = USERS.query.get(id)
+user_to_delete.delete()
+db.session.commit()
+```
+
+# cleaning the dataset which had duplicates
+```python
+# install pandas
+import pandas as pd
+
+
+df = pd.read_csv("dataset_simulation_mix_messages_received.csv")
+df.drop_duplicates(subset=["message"], keep="first", implace=True, ignore_idex=True)
+df.drop_duplicates(subset=["message"], keep="first", inplace=True, ignore_index=True)
+len(df)
+156
+df.to_csv("dataset_cleaned.csv", index=False) 
+```

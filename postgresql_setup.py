@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 import os
 import subprocess
-from dotenv
-import load_dotenv
+from dotenv import load_dotenv
 
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path='.env', override=False)
-load_dotenv(dotenv_path=".vars.env", override=True)
 
 POSTGRES_VERSION = os.getenv("POSTGRES_VERSION", "17")
 DB_NAME = os.getenv("DBNAME")
@@ -131,3 +129,6 @@ sudo sed -i -e '/^local\\s\\+all\\s\\+all\\s\\+peer/s/peer/md5/' \\
 
     except subprocess.CalledProcessError as e:
         print(f"Error configuring PostgreSQL: {e}")
+
+
+configure_postgresql()

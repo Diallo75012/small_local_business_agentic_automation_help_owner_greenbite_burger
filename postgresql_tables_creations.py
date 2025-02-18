@@ -10,16 +10,15 @@ from dotenv import load_dotenv
 
 # load env vars
 load_dotenv(dotenv_path='.env', override=False)
-load_dotenv(dotenv_path=".vars", override=True)
 
 # Retrieve database connection parameters from environment variables
-hostname = os.getenv("DB_HOST")
-port = int(os.getenv("DB_PORT"))
-database = os.getenv("DB_NAME")
-username = os.getenv("DB_USER")
-password = os.getenv("DB_PASSWORD")
+hostname = os.getenv("DBHOST")
+port = int(os.getenv("DBPORT"))
+database = os.getenv("DBNAME")
+username = os.getenv("DBUSER")
+password = os.getenv("DBPASSWORD")
 
-# Initialize the PostgreSQL connection
+# Initialize the PostgreSQL connection and to be imported by other part of code tomage a db connection
 db = PostgreSQL(hostname=hostname, port=port, database=database, username=username, password=password)
 
 # models
@@ -53,10 +52,9 @@ class MenuItems(db.Model):
     Client's DEV can change here the database following menu changes
   '''
   id = db.Column(db.Integer, primary_key=True)
-  category = db.Column(db.String(30), nullable=False)
-  item_name = db.Column(db.String(30), nullable=False)
-  description = db.Column(db.String(500), nullable=False)
-  ingredients = # String or JSON or list of ingredients for parsing and matching
-  price = db.Column(db.Integer, unique=False, nullable=False)
-  created_at = db.Column(db.DateTime, default=datetime.datetime.now) # Timestamp; when the item was added/updated
+  item_name = db.Column(db.String(30), nullable=False) # key in k/v cache
+  description = db.Column(db.String(500), nullable=False) # value in k/v cache
+  price = db.Column(db.Integer, unique=False, nullable=False) # value in k/v cache (with separator)
 
+# create all tables
+db.create_all()

@@ -1,0 +1,62 @@
+'''
+File that create the database using postgresql python library ORM
+like in django just use models to abstract away the database schema
+source: `https://pypi.org/project/flask-pgsql/`
+'''
+import os
+from flask_postgresql import PostgreSQL
+from dotenv import load_dotenv
+
+
+# load env vars
+load_dotenv(dotenv_path='.env', override=False)
+load_dotenv(dotenv_path=".vars", override=True)
+
+# Retrieve database connection parameters from environment variables
+hostname = os.getenv("DB_HOST")
+port = int(os.getenv("DB_PORT"))
+database = os.getenv("DB_NAME")
+username = os.getenv("DB_USER")
+password = os.getenv("DB_PASSWORD")
+
+# Initialize the PostgreSQL connection
+db = PostgreSQL(hostname=hostname, port=port, database=database, username=username, password=password)
+
+# models
+class Messages(db.Model):
+  '''
+    This will receive the messages that are randomly collected
+  '''
+  id = db.Column(db.Integer, primary_key=True)
+  date = db.Column(db.DateTime, nullable=False) # if issue with DateTime just use `String(50)`
+  message = db.Column(db.String(500), nullable=False)
+
+class Orders(db.Model):
+  '''
+    This will be validated orders after agent filtering through
+  '''
+  id = db.Column(db.Integer, primary_key=True)
+  date = db.Column(db.DateTime, nullable=False)
+  message = db.Column(db.String(500), nullable=False) # Text/Structured data, e.g. JSON (Dumps) with extracted items
+
+class Enquiries(db.Model):
+  '''
+    This will be what looks like an order but it is actually an enquire
+  '''
+  id = db.Column(db.Integer, primary_key=True)
+  date = db.Column(db.DateTime, nullable=False)
+  message = db.Column(db.String(500), nullable=False) # enquiry_details (Text/structured data)
+
+class MenuItems(db.Model):
+  '''
+    This table stores each menu item with detailed attributes. and will be put to cache later on.
+    Client's DEV can change here the database following menu changes
+  '''
+  id = db.Column(db.Integer, primary_key=True)
+  category = db.Column(db.String(30), nullable=False)
+  item_name = db.Column(db.String(30), nullable=False)
+  description = db.Column(db.String(500), nullable=False)
+  ingredients = # String or JSON or list of ingredients for parsing and matching
+  price = db.Column(db.Integer, unique=False, nullable=False)
+  created_at = db.Column(db.DateTime, default=datetime.datetime.now) # Timestamp; when the item was added/updated
+

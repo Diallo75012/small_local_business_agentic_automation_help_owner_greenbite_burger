@@ -1,0 +1,11 @@
+backports.tarfile==1.2.0
+importlib-metadata==8.0.0
+jaraco.collections==5.1.0
+packaging==24.2
+pip-chill==1.0.3
+platformdirs==4.2.2
+psycopg==3.2.4
+psycopg2==2.9.10
+psycopg2-binary==2.9.10
+python-dotenv==1.0.1
+tomli==2.0.1

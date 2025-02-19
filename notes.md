@@ -147,7 +147,7 @@ df.to_csv("dataset_cleaned.csv", index=False)
 - minimal diagram very high level: [diagram](https://excalidraw.com/#json=iJCmbJ1I0pwlXhDENCmzw,bxkB1DpYXkZA3WPuNWwNZg)
 
 # Next
-- [] do script that adds to the database news records coming from the `dataset_cleaned`
+- [x] do script that adds to the database news records coming from the `dataset_cleaned`
      (we are not going to use cronjob but a script that will be launched and run sleeping sometimes and having random number generator
      for how many messages are added to the database)
 - [] have agent starting flow by tracking the incremental id of the messages table and would save the last id in the `,vars.env`
@@ -169,3 +169,54 @@ random.random()
 # get float number from custom float range
 random.uniform()
 ```
+
+# issue with column for date
+`date` column is a `date` type even if the model is using `db.DateTime` the time gets truncated and only the date is saved
+```psql
+restaurantdb=# SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'messages';
+ column_name |     data_type     
+-------------+-------------------
+ id          | integer
+ dfidx       | integer
+ date        | date
+ message     | character varying
+(4 rows)
+```
+- need to change the column type to `timestamp` instead of `date`
+to fix that had to modify the script that creates the tables and import `from sqlalchemy import DateTime`
+then use for all date fields: `DateTime(timezone=False)`
+- but then `sqlalchemy` way of using `DateTime` is not compatible with `flask-postgresql` python library way which expects his how `db.DateTime`:
+```bash
+   class Messages(db.Model):
+  File "/home/creditizens/resturant_automation/greenbite_burger/postgresql_tables_creations.py", line 33, in Messages
+    date = db.Column(DateTime(timezone=False), nullable=False) # if issue with DateTime just use `String(50)`
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/creditizens/resturant_automation/.venv/lib/python3.12/site-packages/flask_postgresql/__init__.py", line 142, in Column
+    return (data_type.__name__,primary_key,nullable,unique,default, array)
+            ^^^^^^^^^^^^^^^^^^
+AttributeError: 'DateTime' object has no attribute '__name__'. Did you mean: '__ne__'?
+```
+- fixing this by just using `Timestamp` instead of `DateTime` and was lucky as ChatGPT didn't know and internet search not well documented. Did by using `GoKu Ultrainstinct`:
+```python
+date = db.Column(db.Timestamp, nullable=False)
+```
+- command to check
+```psql
+restaurantdb=# SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'messages';
+ column_name |          data_type          
+-------------+-----------------------------
+ id          | integer
+ dfidx       | integer
+ date        | timestamp without time zone
+ message     | character varying
+(4 rows)
+```
+
+# Next
+- [] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
+     so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
+- [] create the logic of that agent which works only with the orders and would create a notification to the discord group for `Orders`
+     and checks time in the day to create a csv of orders only.
+- [] have another agentic flow starting with a subprocess that record logs of steps
+     and that will work on the messages filtered as not behing orders and classify those and store those to the corresponding database.
+

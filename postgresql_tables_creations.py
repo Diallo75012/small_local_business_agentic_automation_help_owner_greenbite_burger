@@ -27,7 +27,9 @@ class Messages(db.Model):
     This will receive the messages that are randomly collected
   '''
   id = db.Column(db.Integer, primary_key=True)
-  date = db.Column(db.DateTime, nullable=False) # if issue with DateTime just use `String(50)`
+  # index from dataframe so next agent can use same logic from database rows and just use same `.var.env` var to know where to start
+  dfidx = db.Column(db.Integer, nullable=False)
+  date = db.Column(db.Timestamp, nullable=False) # if issue with DateTime just use `String(50)`
   message = db.Column(db.String(500), nullable=False)
 
 class Orders(db.Model):
@@ -35,7 +37,7 @@ class Orders(db.Model):
     This will be validated orders after agent filtering through
   '''
   id = db.Column(db.Integer, primary_key=True)
-  date = db.Column(db.DateTime, nullable=False)
+  date = db.Column(db.Timestamp, nullable=False)
   message = db.Column(db.String(500), nullable=False) # Text/Structured data, e.g. JSON (Dumps) with extracted items
 
 class Enquiries(db.Model):
@@ -43,7 +45,7 @@ class Enquiries(db.Model):
     This will be what looks like an order but it is actually an enquire
   '''
   id = db.Column(db.Integer, primary_key=True)
-  date = db.Column(db.DateTime, nullable=False)
+  date = db.Column(db.Timestamp, nullable=False)
   message = db.Column(db.String(500), nullable=False) # enquiry_details (Text/structured data)
 
 class MenuItems(db.Model):
@@ -56,5 +58,5 @@ class MenuItems(db.Model):
   description = db.Column(db.String(500), nullable=False) # value in k/v cache
   price = db.Column(db.Integer, unique=False, nullable=False) # value in k/v cache (with separator)
 
-# create all tables
+# create all tables (run it once at the beginning of the project then comment it out)
 db.create_all()

@@ -35,6 +35,7 @@ for elem in data:
   time.sleep(number)
   print(f"time:{number} - {elem}")
 '''
+'''
 # be careful indexes are type nympy.in64 so save those as str() to env var to avoid errors
 df = pd.read_csv("dataset_cleaned.csv")
 print(df.head())
@@ -60,3 +61,24 @@ print("new index value in env var now: ", int(os.getenv("MESSAGE_INDEX_TRACKER")
 # now simulate an id 37 that you are going to use to fetch the csv file again but from that index until the end of it
 df_fetch_form_index = pd.read_csv("dataset_cleaned.csv").index[37:]
 print("len new df fetched from index: ", len(df_fetch_form_index))
+'''
+
+# add messages to database using the frequency way
+from postgresql_tables_creations import (
+  db,
+  Messages,
+)
+from datetime import datetime
+
+
+df = pd.read_csv("dataset_cleaned.csv")[0:100]
+for index, row in df.iterrows():
+  # print("row: ", index, row.timestamp, row.message)
+  print(row.timestamp)
+  # 15s to 20 seconds before adding row (lot of orders for this Owner, nice!!)
+  time.sleep(random.uniform(15, 30))
+  # datetime.strptime(row.timestamp, '%Y-%m-%d %H:%M:%S')
+  new_message = Messages(dfidx=index, date=row.timestamp, message=row.message)
+  db.session.add(new_message)
+  db.session.commit()
+  print(f"Data added to db: ", index, row.timestamp, row.message)

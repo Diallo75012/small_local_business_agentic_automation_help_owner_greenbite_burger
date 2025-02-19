@@ -152,3 +152,20 @@ df.to_csv("dataset_cleaned.csv", index=False)
      for how many messages are added to the database)
 - [] have agent starting flow by tracking the incremental id of the messages table and would save the last id in the `,vars.env`
      so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
+
+# random in Python
+- integers: 
+```python
+# in a range of intergers get interger
+random.randint(0, 10)
+# in a range with steps
+random.ranrange(0, 10, 2)
+```
+
+- floats:
+```python
+# get random float number from 0 to 1
+random.random()
+# get float number from custom float range
+random.uniform()
+```

@@ -142,3 +142,13 @@ len(df)
 156
 df.to_csv("dataset_cleaned.csv", index=False) 
 ```
+
+# diagram
+- minimal diagram very high level: [diagram](https://excalidraw.com/#json=iJCmbJ1I0pwlXhDENCmzw,bxkB1DpYXkZA3WPuNWwNZg)
+
+# Next
+- [] do script that adds to the database news records coming from the `dataset_cleaned`
+     (we are not going to use cronjob but a script that will be launched and run sleeping sometimes and having random number generator
+     for how many messages are added to the database)
+- [] have agent starting flow by tracking the incremental id of the messages table and would save the last id in the `,vars.env`
+     so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.

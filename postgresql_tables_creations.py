@@ -59,4 +59,4 @@ class MenuItems(db.Model):
   price = db.Column(db.Integer, unique=False, nullable=False) # value in k/v cache (with separator)
 
 # create all tables (run it once at the beginning of the project then comment it out)
-db.create_all()
+# db.create_all()

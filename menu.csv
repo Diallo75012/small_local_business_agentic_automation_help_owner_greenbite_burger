@@ -1,0 +1,48 @@
+item_name, description, price
+"The Green Garden Vegan Burger", "Vegan Burgers. A 100% plant-based patty made from black beans, quinoa, and vegetables, topped with fresh lettuce, tomato, avocado, red onion, and a zesty cashew mayo on a multigrain bun. Ingredients: Black beans, quinoa, carrots, zucchini, bell peppers, lettuce, tomato, avocado, red onion, cashews, lemon juice, spices. Dietary Tags: Vegan, Gluten-Free (optional with GF bun), Low Cholesterol", "Price: $9.95"
+
+"Spicy Tempeh Burger", "Vegan Burgers. Marinated tempeh grilled to perfection, layered with arugula, pickled jalapeños, tomato, and vegan chipotle sauce on a whole-wheat bun. Ingredients: Tempeh, arugula, tomato, pickled jalapeños, chipotle sauce (vegan), whole-wheat bun, spices. Dietary Tags: Vegan, High Protein", "Price: $10.50"
+
+
+"Grilled Chicken Avocado Burger", "Poultry & Lean Meat Burgers. A lean grilled chicken breast served with sliced avocado, baby spinach, tomato, and a light yogurt-herb sauce on a sourdough bun. Ingredients: Chicken breast, avocado, baby spinach, tomato, Greek yogurt, fresh herbs, sourdough bun, olive oil, lemon. Dietary Tags: Low Fat, High Protein, Gluten-Free option available", "Price: $11.50"
+
+"Turkey Quinoa Burger", "Poultry & Lean Meat Burgers. Ground turkey mixed with quinoa and herbs, served with mixed greens, cucumber slices, and a tangy mustard vinaigrette on a multigrain bun. Ingredients: Ground turkey, cooked quinoa, mixed herbs, lettuce, cucumber, tomato, mustard vinaigrette, multigrain bun. Dietary Tags: Low Cholesterol, High Protein", "Price: $12.25"
+
+"Herbed Chicken Pesto Burger", "Poultry & Lean Meat Burgers.  Tender grilled chicken infused with basil and garlic, topped with homemade pesto, arugula, and sun-dried tomatoes on a whole-wheat bun. Ingredients: Chicken breast, basil, garlic, arugula, sun-dried tomatoes, homemade pesto (basil, pine nuts, olive oil, Parmesan or vegan substitute), whole-wheat bun. Dietary Tags: Low Fat, Fresh Ingredients", "Price: $12.75"
+
+"The Powerhouse Superfood Burger", "Specialty & Signature Burgers. A signature burger featuring a blend of black lentils and chickpeas, topped with kale chips, avocado spread, shredded carrot, and a drizzle of tahini lemon dressing on an organic brioche bun. Ingredients: Black lentils, chickpeas, kale chips, avocado, shredded carrot, tahini, lemon juice, organic brioche bun, spices. Dietary Tags: Vegan (with dairy-free brioche option), High in Fiber, Superfood", "Price: $13.50"
+
+"The Mediterranean Burger", "Specialty & Signature Burgers. A lean turkey burger seasoned with oregano and garlic, topped with roasted red peppers, spinach, feta (or vegan feta), and a dollop of tzatziki sauce on a whole-grain bun. Ingredients: Ground turkey, roasted red peppers, spinach, feta cheese or vegan alternative, tzatziki sauce, whole-grain bun, oregano, garlic. Dietary Tags: Mediterranean, High Protein, Optional Vegan Version", "Price: $12.95"
+
+"Grilled Veggie & Hummus Wrap", "Description: Warm flatbread filled with grilled zucchini, bell peppers, onions, spinach, and a generous spread of roasted red pepper hummus.
+Ingredients: Flatbread, zucchini, bell peppers, onions, spinach, hummus, olive oil, spices. Dietary Tags: Vegan, Gluten-Free option available", "Price: $8.75"
+
+"Chicken Caesar Wrap", "Wraps & Flatbreads. Sliced grilled chicken, romaine lettuce, light Caesar dressing, and whole grain croutons wrapped in a spinach tortilla. Ingredients: Chicken breast, romaine lettuce, light Caesar dressing, spinach tortilla, croutons (optional). Dietary Tags: Low Fat, High Protein, Gluten-Free option available", "Price: $9.95"
+
+"Turkey Avocado Flatbread", "Wraps & Flatbreads. Sliced turkey, avocado, mixed greens, tomato, and a light lemon vinaigrette served on a thin, crispy flatbread. Ingredients: Sliced turkey, avocado, mixed greens, tomato, flatbread, lemon vinaigrette, spices. Dietary Tags: Low Cholesterol, High Protein", "Price: $10.50"
+
+"Kale & Quinoa Super Salad", "Salads. Fresh kale massaged with olive oil and lemon, tossed with red quinoa, cranberries, toasted almonds, and a light balsamic vinaigrette. Ingredients: Kale, red quinoa, cranberries, almonds, balsamic vinaigrette, olive oil, lemon juice. Dietary Tags: Vegan, Gluten-Free, High in Protein", "Price: $8.50"
+
+"Mediterranean Chickpea Salad", "Salads. Chickpeas, cucumber, tomato, red onion, olives, and feta (or vegan alternative) tossed in a lemon-herb dressing. Ingredients: Chickpeas, cucumber, tomato, red onion, olives, feta cheese or vegan substitute, lemon-herb dressing, fresh herbs. Dietary Tags: Mediterranean, Vegetarian, Optional Vegan Version", "Price: $7.95"
+
+"Citrus Avocado Salad", "Salads. Mixed greens with avocado, orange segments, red onion, and a citrus vinaigrette for a refreshing burst of flavor. Ingredients: Mixed greens, avocado, orange segments, red onion, citrus vinaigrette, olive oil, lemon. Dietary Tags: Vegan, Gluten-Free, Refreshing", "Price: $8.25"
+
+"Sweet Potato Fries", "Sides. Oven-baked sweet potato fries lightly seasoned with rosemary and sea salt. Ingredients: Sweet potatoes, rosemary, sea salt, olive oil. Dietary Tags: Vegan, Gluten-Free", "Price: $4.50"
+
+"Kale Chips", "Sides. Crispy baked kale chips seasoned with nutritional yeast and a hint of garlic. Ingredients: Kale, nutritional yeast, garlic powder, olive oil, sea salt. Dietary Tags: Vegan, Gluten-Free, Low-Calorie", "Price: $3.95"
+
+"Fresh Fruit Cup", "Sides. A seasonal mix of sliced fruits such as berries, melon, and citrus, lightly drizzled with honey and mint. Ingredients: Seasonal fruits, honey, mint. Dietary Tags: Vegan, Gluten-Free, Refreshing", "Price: $5.50"
+
+"Cold Brew Coffee", "Drinks. Smooth and less acidic cold brew coffee served black or with almond milk. Ingredients: Coarsely ground coffee beans, water, optional almond milk. Dietary Tags: Vegan, Caffeine", "Price: $3.50"
+
+"Freshly Squeezed Juices", "Drinks. Options: Orange, Apple, Carrot-Ginger, or Green Detox (spinach, cucumber, green apple, lemon). Dietary Tags: Vegan, Fresh", "Price: $4.25 per glass"
+
+"Kombucha", "Drinks. Naturally fermented tea with a tangy flavor and a slight effervescence, available in various flavors. Dietary Tags: Vegan, Probiotic", "Price: $3.75"
+
+"Herbal Iced Tea", "Drinks. Refreshing iced tea brewed with a blend of herbs like mint and hibiscus, served unsweetened or lightly sweetened. Dietary Tags: Vegan, Gluten-Free", "Price: $3.25"
+
+"Fruit Parfait", "Desserts. Layers of seasonal fruit, low-fat yogurt (or coconut yogurt for vegan), and a sprinkle of granola. Ingredients: Seasonal fruit, yogurt or coconut yogurt, granola, honey (optional). Dietary Tags: Vegetarian, Vegan option available", "Price: $5.95"
+
+"Chia Pudding", "Desserts. Creamy pudding made from chia seeds, almond milk, and a touch of natural sweetener, topped with fresh berries. Ingredients: Chia seeds, almond milk, natural sweetener, fresh berries. Dietary Tags: Vegan, Gluten-Free, High Fiber", "Price: $5.50"
+
+"Baked Cinnamon Apples", "Desserts. Warm baked apples spiced with cinnamon and nutmeg, served with a drizzle of honey or maple syrup. Ingredients: Apples, cinnamon, nutmeg, honey or maple syrup, optional nuts. Dietary Tags: Vegan option available, Gluten-Free", "Price: $4.75"

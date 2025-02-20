@@ -220,3 +220,136 @@ restaurantdb=# SELECT column_name, data_type FROM information_schema.columns WHE
 - [] have another agentic flow starting with a subprocess that record logs of steps
      and that will work on the messages filtered as not behing orders and classify those and store those to the corresponding database.
 
+# Memcache for question answers instead of redis
+- install memcached on ubuntu
+```bash
+sudo apt update
+sudo apt install memcached
+```
+# systemctl start
+```bash
+sudo systemctl start memcached
+```
+# manual start 
+```bash
+memcached -d -m 64 -l 127.0.0.1 -p 11211
+-d:		Run as a daemon.
+-m 64:		Use 64MB of memory.
+-l 127.0.0.1:	Listen only on localhost.
+-p 11211:	Use port 11211 (default Memcached port).
+source: https://medium.com/@netfluff/memcached-for-django-ecedcb74a06d
+```
+# python client to interact with memcached server
+```python
+pip install python-memcached
+```
+# set cache with ttl
+```python
+import memcache
+
+# eg. Connecting to Memcached
+cache = memcache.Client(['127.0.0.1:11211'], debug=1)
+# eg. to get cache values
+cache_key = "junko_shibuya_mangakissa"
+chat_messages = cache.get(cache_key)
+if not chat_messages:
+  cache.set(cache_key, list(chat_messages), time=3600)
+# eg. to set cache key vaklue
+cache.set(cache_key, data, cache_time)
+```
+
+# Update logic caching and how data wil flow and fetching
+- excalidraw link: [diagram with zoom in cache system](https://excalidraw.com/#json=XiSlkWmusKgpEdXS-DH6z,LIIGLgnbw-Fqi_I09hcaGQ)
+
+1. from `menu.csv` data is saved to database using `pandas` and `python-postgresql`
+2. from `postgresql`, menu is stored to cache and a list of the keys corresponding to column `name` is svaed in `.vars.env`
+3. agent get user message and create a structured output which will separated the item required, so different items with quantity
+4. item names are checked against the list of keys for similarity using the `Alibaba-NLP/gte-modernbert-base` model on the fly
+5. keys passing threshold will be sent to next agent, if no key the message will be reclassified as enquiry and deleted from `order` database table and recorded in `enquiries` table.
+6. so next agent will receive one or more keys (two best scored keys max) and will get the value description and price from cache for each and be sent the full line of the order request. Then it will return a structured output which will be telling us the order, the description and the price and why.
+7. next agent will be sending notification to discord `order` category so that staff with permission to read that one will be notified to prepare the order.
+
+# code examples to create out scripts to save data to db
+```python
+import os
+import json
+import time
+import random
+import pandas as pd
+from dotenv import load_dotenv, set_key
+
+load_dotenv(dotenv_path='.vars.env', override=True)
+
+MESSAGE_INDEX_TRACKER = json.loads(os.getenv("MESSAGE_INDEX_TRACKER"))
+print("Message index tracker env var value: ", MESSAGE_INDEX_TRACKER, type(MESSAGE_INDEX_TRACKER))
+```
+```python
+# test sleep get data output frequently using `random.uniform(range)`
+data = ["hello", "Shibuya", "here", "the", "world"]
+
+for elem in data:
+  number = random.uniform(0.01, 0.9)
+  time.sleep(number)
+  print(f"time:{number} - {elem}")
+```
+```python
+# be careful indexes are type nympy.in64 so save those as str() to env var to avoid errors
+df = pd.read_csv("dataset_cleaned.csv")
+print(df.head())
+# gets the index number of last row here `5` as we print the `.head()` only
+print(df.head().index.stop)
+# prints the number of rows in the dataframe `156`            
+print(df.index.stop)
+print(f"len df: {len(df)}")
+# getting the index of a message (be carefull df indexes are type nympy.int64 need to covert to int type)
+new_index = df.index[df['message'] == 'Where can I pick up my order?'][0]
+print("Index of message: ", df.index[df['message'] == 'Where can I pick up my order?'][0])
+# here we are making new df that have rows only from a certain index to the end
+#df = df[df.index[df['message'] == 'Where can I pick up my order?'][0]+1:]
+df = df[2:]
+print(df.head())
+print(df.index.stop)
+print(f"len df: {len(df)}")
+# store updated index in a `.vars.env file
+print("New index: ", new_index, type(new_index))
+set_key(".vars.env", "MESSAGE_INDEX_TRACKER", str(new_index))
+load_dotenv(dotenv_path='.vars.env', override=True)
+print("new index value in env var now: ", int(os.getenv("MESSAGE_INDEX_TRACKER")), type(int(os.getenv("MESSAGE_INDEX_TRACKER"))))
+# now simulate an id 37 that you are going to use to fetch the csv file again but from that index until the end of it
+df_fetch_form_index = pd.read_csv("dataset_cleaned.csv").index[37:]
+print("len new df fetched from index: ", len(df_fetch_form_index))
+```
+```python
+# add messages to database using the frequency way
+from postgresql_tables_creations import (
+  db,
+  Messages,
+)
+from datetime import datetime
+
+
+df = pd.read_csv("dataset_cleaned.csv")[0:100]
+for index, row in df.iterrows():
+  # print("row: ", index, row.timestamp, row.message)
+  print(row.timestamp)
+  # 15s to 20 seconds before adding row (lot of orders for this Owner, nice!!)
+  time.sleep(random.uniform(15, 30))
+  # datetime.strptime(row.timestamp, '%Y-%m-%d %H:%M:%S')
+  new_message = Messages(dfidx=index, date=row.timestamp, message=row.message)
+  db.session.add(new_message)
+  db.session.commit()
+  print(f"Data added to db: ", index, row.timestamp, row.message)
+```
+
+# Next
+- [] create a module with unction that handles the alibaba bert nlp model similarity checker
+- [] create a script that saves the menu to database and saved the database content to cache
+- [] create the first agent that checks the messages if orders or not and send to other agents:
+  - [] agent that treat orders and creates structured output of the order
+  - [] agent that classified messages as miscellaneous or order inquiry
+- [] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
+     so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
+- [] create the logic of that agent which works only with the orders and would create a notification to the discord group for `Orders`
+     and checks time in the day to create a csv of orders only.
+- [] have another agentic flow starting with a subprocess that record logs of steps
+     and that will work on the messages filtered as not behing orders and classify those and store those to the corresponding database.

@@ -1,9 +1,9 @@
 backports.tarfile==1.2.0
 flask==3.1.0
 flask-pgsql==0.0.10
+greenlet==3.1.1
 importlib-metadata==8.0.0
 jaraco.collections==5.1.0
-packaging==24.2
 pandas==2.2.3
 pip-chill==1.0.3
 platformdirs==4.2.2
@@ -11,5 +11,5 @@ psycopg==3.2.4
 psycopg2-binary==2.9.10
 python-dotenv==1.0.1
 python-memcached==1.62
-sqlalchemy==2.0.38
+sentence-transformers==3.4.0
 tomli==2.0.1

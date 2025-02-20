@@ -342,7 +342,7 @@ for index, row in df.iterrows():
 ```
 
 # Next
-- [] create a module with unction that handles the alibaba bert nlp model similarity checker
+- [] create a module with function that handles the `Alibaba Bert nlp` model similarity checker
 - [] create a script that saves the menu to database and saved the database content to cache
 - [] create the first agent that checks the messages if orders or not and send to other agents:
   - [] agent that treat orders and creates structured output of the order
@@ -353,3 +353,55 @@ for index, row in df.iterrows():
      and checks time in the day to create a csv of orders only.
 - [] have another agentic flow starting with a subprocess that record logs of steps
      and that will work on the messages filtered as not behing orders and classify those and store those to the corresponding database.
+
+# Similarity search lesson learned for tensors and how to get value score standalone and indexin list
+```python
+import os
+# Requires transformers>=4.48.0
+from sentence_transformers import SentenceTransformer
+from sentence_transformers.util import cos_sim
+
+
+input_texts = [
+    "what is a manga kissa?",
+    "Is Hachiko story real? did he have a piece of paper and a pen next to Shibuya JR station?",
+    "I like Udon from Kyushu.",
+    "where is the manga kissa?",
+    "what is a manga kissa coffee?",
+    "I love udon from Kyushu",
+    "It is the story of someone waiting at JR station, next to Hachiko with a pen paper."
+]
+
+# dimension of `Alibaba-NLP/gte-modernbert-base` embeddings is `768`
+model = SentenceTransformer("Alibaba-NLP/gte-modernbert-base")
+embeddings = model.encode(input_texts)
+#print(embeddings.shape)
+
+
+similarities = cos_sim(embeddings[1], embeddings[:1])
+similarities2 = cos_sim(embeddings[1], embeddings[2:])
+print(similarities[0][0].nonzero(as_tuple=True)[0].item(), input_texts[similarities[0][0].nonzero(as_tuple=True)[0].item()])
+print(similarities2[0][4].item())
+# outputs slowly evolving as we dig, last output is what we want corresponding to above code:
+- first test -> print(similarities) and print(similarities2):
+tensor([[0.5441]]) # raw printing of similarity scores
+tensor([[0.5830, 0.5792, 0.5680, 0.5815, 0.8452]])
+- second test -> print(similarities[0][0]) and print(similarities2[0][4]):
+tensor(0.5441) # getting targetting values using normal python list indexing
+tensor(0.8452)
+- third test -> print(similarities[0][0]) and print(similarities2[0][4].item())
+tensor(0.5441)
+0.8452041149139404 # getting the value in `tensor()` using `.item()`
+- fourth test -> print(similarities[0][0].nonzero(as_tuple=True)[0]) and print(similarities2[0][4].item()):
+tensor([0]) # getting the index using `.nonzero(as_tuple=True)[0]`
+0.8452041149139404
+- fifth test -> print(similarities[0][0].nonzero(as_tuple=True)) and print(similarities2[0][4].item()):
+(tensor([0]),) # checking how the tuple looks like
+0.8452041149139404
+- seventh test -> print(similarities[0][0].nonzero(as_tuple=True)[0].item()) and print(similarities2[0][4].item()):
+0 # getting the value of the index isolated out form `tensor()` by combining `.item()` to `.nonzero(as_tuples=True)[0]`
+0.8452041149139404
+- last test -> print(similarities[0][0].nonzero(as_tuple=True)[0].item(), input_texts[similarities[0][0].nonzero(as_tuple=True)[0].item()]) and print(similarities2[0][4].item()):
+0 what is a manga kissa? # using the index to now print the target text that correspond to score
+0.8452041149139404
+```

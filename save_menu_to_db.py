@@ -42,8 +42,8 @@ def store_menu_csv_to_db(menu_csv_file: str = os.getenv("MENU_CSV_FILE")) -> str
   except Exception as e:
     return f"An error occured while trying to save menu in database: {e}"
 
-'''
+
 if __name__ == "__main__":
   store_menu = store_menu_csv_to_db(os.getenv("MENU_CSV_FILE"))
   print(store_menu)
-'''
+

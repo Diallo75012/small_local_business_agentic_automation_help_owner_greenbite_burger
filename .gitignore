@@ -90,6 +90,8 @@ ENV/
 env/
 env.bak/
 venv.bak/
+.env
+.vars.env
 
 # IDE settings (VS Code, PyCharm, etc.)
 .vscode/

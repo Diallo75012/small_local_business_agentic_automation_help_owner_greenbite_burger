@@ -56,7 +56,8 @@ class MenuItems(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   item_name = db.Column(db.String(30), nullable=False) # key in k/v cache
   description = db.Column(db.String(500), nullable=False) # value in k/v cache
-  price = db.Column(db.Integer, unique=False, nullable=False) # value in k/v cache (with separator)
+  price = db.Column(db.String(30), unique=False, nullable=False) # value in k/v cache (with separator)
 
-# create all tables (run it once at the beginning of the project then comment it out)
-# db.create_all()
+if __name__ == "__main__":
+  # create all tables (run it once at the beginning of the project then comment it out)
+  db.create_all()

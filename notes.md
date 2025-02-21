@@ -212,14 +212,6 @@ restaurantdb=# SELECT column_name, data_type FROM information_schema.columns WHE
 (4 rows)
 ```
 
-# Next
-- [] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
-     so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
-- [] create the logic of that agent which works only with the orders and would create a notification to the discord group for `Orders`
-     and checks time in the day to create a csv of orders only.
-- [] have another agentic flow starting with a subprocess that record logs of steps
-     and that will work on the messages filtered as not behing orders and classify those and store those to the corresponding database.
-
 # Memcache for question answers instead of redis
 - install memcached on ubuntu
 ```bash

@@ -24,16 +24,25 @@ def similarity_check_on_the_fly(menu_item_names: List, message_order_item: str, 
 
   # dimension of `Alibaba-NLP/gte-modernbert-base` embeddings is `768`
   model = SentenceTransformer("Alibaba-NLP/gte-modernbert-base")
-  embeddings_menu_item_names = model.encode(menu_items_names)
-  embeddings_message_order_item = model.encode(message_order_item)
+  # put the order item that we need to check if similar of what we have at the end of the list of menu item names
+  # then we will use index -1 check that against the full list
+  menu_item_names.append(message_order_item)
+
+  similarity_test_list = menu_item_names
+  print(similarity_test_list)
+  embeddings_menu_item_names_with_order_item_to_test = model.encode(similarity_test_list)
 
   # now compute the similarity score
-  similarities = cos_sim(embeddings_message_order_item[0], embeddings_menu_item_names[:])
+  similarities = cos_sim(embeddings_menu_item_names_with_order_item_to_test[-1], embeddings_menu_item_names_with_order_item_to_test[:-1])
   max_similar = similarities.max().item()
+  print("max_similar: ", max_similar)
   # we check if the score is pass the threshold test
-  if max_similar >= similarity_threshold:
-    # if it is passing the threshold test we get the index corredponding to the `key` text we want to pass to next agent
-
+  if max_similar:
+    if max_similar >= similarity_threshold:
+      # if it is passing the threshold test we get the index corredponding to the `key` text we want to pass to next agent
+      for idx in range(len(similarities[0])):
+        if similarities[0][idx] == max_similar:
+          print(f"{idx} - {similarities[0][idx]} - {menu_item_names[idx]}")
 
 
 input_texts = [
@@ -45,7 +54,7 @@ input_texts = [
     "I love udon from Kyushu",
     "It is the story of someone waiting at JR station, next to Hachiko with a pen paper."
 ]
-
+'''
 # dimension of `Alibaba-NLP/gte-modernbert-base` embeddings is `768`
 model = SentenceTransformer("Alibaba-NLP/gte-modernbert-base")
 embeddings = model.encode(input_texts)
@@ -56,5 +65,11 @@ similarities = cos_sim(embeddings[1], embeddings[:1])
 similarities2 = cos_sim(embeddings[1], embeddings[2:])
 print(similarities[0][0].nonzero(as_tuple=True)[0].item(), input_texts[similarities[0][0].nonzero(as_tuple=True)[0].item()])
 print(similarities2[0][4].item())
-print(similarities2.max())
+print(similarities2)
+print(similarities2.max().item())
+for idx in range(len(similarities2[0])):
+  if similarities2[0][idx] == similarities2.max().item():
+    print(f"{idx} - {similarities2[0][idx]} - {input_texts[idx]}")
+'''
 
+similarity_check_on_the_fly(input_texts, "what is a manga kissa coffee?")

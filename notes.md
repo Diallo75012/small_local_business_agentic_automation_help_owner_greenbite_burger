@@ -342,7 +342,7 @@ for index, row in df.iterrows():
 ```
 
 # Next
-- [] create a module with function that handles the `Alibaba Bert nlp` model similarity checker
+- [x] create a module with function that handles the `Alibaba Bert nlp` model similarity checker
 - [] create a script that saves the menu to database and saved the database content to cache
 - [] create the first agent that checks the messages if orders or not and send to other agents:
   - [] agent that treat orders and creates structured output of the order

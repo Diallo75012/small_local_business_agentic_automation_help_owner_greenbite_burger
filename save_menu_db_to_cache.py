@@ -46,7 +46,7 @@ def store_db_menu_to_cache(db_table_name: str, ttl: int = int(os.getenv("TTL")),
   cache memcache.Client: the connection client to memcache
 
   output:
-  str confirmation that database menu has been saved to cache or message error if any
+  str confirmation that database menu has been saved to cache or message error if any 
   '''
   # create dataframe using `read_sql_query` as using c/c++ under the hood (better performance) instead of `MenuItems.query.all() and then loop over rows..
   query = "SELECT item_name, description, price FROM menuitems"

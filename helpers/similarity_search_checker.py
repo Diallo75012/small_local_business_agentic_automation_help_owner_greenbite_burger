@@ -21,7 +21,7 @@ def similarity_check_on_the_fly(menu_item_names: List, message_order_item: str, 
   similarity_threshold float: an float determining the percentage threshold in decimal number for the similarity to pass the test
 
   outputs:
-  str: if any the highest similary scored item name
+  dict: index of item, item name, similary score when one has passed test, otherwise failed message and similarity score
   '''
 
   # dimension of `Alibaba-NLP/gte-modernbert-base` embeddings is `768`

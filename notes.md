@@ -410,3 +410,7 @@ when `TTL` is greater than 30 days the time is interpreted as `Unix` timestamp s
 ```python
 ttl = int(time.time() + 180 * 24 * 60 * 60)
 ```
+
+# watchdog doc
+- if wanted in the future to use watchdog that will trigger agent whenever `.csv` file is changed so lines are added for example.
+[watchdoc events handler for file change](https://pythonhosted.org/watchdog/api.html?highlight=modified#watchdog.events.FileSystemEventHandler.on_modified)

@@ -5,32 +5,17 @@ from typing import Dict, List, Tuple, Any, Optional, Union
 # models
 from llms.llms import (
   groq_llm_mixtral_7b,
-  groq_llm_llama3_8b,
-  groq_llm_llama3_70b,
   groq_llm_llama3_70b_versatile,
-  groq_llm_gemma_7b,
 )
 # Tools
 from tools.tools import (
-  llm_with_retrieve_answer_tool_choice,
-  tool_retrieve_answer_node,
 )
 # structured output
 from structured_output.structured_output import (
-  analyse_user_query_safety_schema,
-  summarize_user_to_clear_question_schema,
-  answer_to_user_schema,
-  retrieve_answer_schema,
+  message_classification_schema,
 )
 # prompts
 from prompts.prompts import (
-  analyse_user_query_safety_prompt,
-  summarize_user_to_clear_question_prompt,
-  retrieve_answer_prompt,
-  answer_to_user_prompt,
-  # only if needed custom answer prompt
-  #answer_to_user_prompt_055,
-  disclaimer,
 )
 # langchain and langgraph lib
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -45,6 +30,24 @@ from dotenv import load_dotenv, set_key
 load_dotenv(dotenv_path='.env', override=False)
 load_dotenv(dotenv_path=".vars.env", override=True)
 
+'''
+1. fetch_new_messages # this one here need to be developped more in how we will decide to fetch those messages from db and how the main app will simulate message added to db
+
+2.  > score_test_message_relevance_agent
+3.    >>> rephrase_query_agent
+3.1        > store_to_enquiries_bucket_agent
+3.2          > notify_discord_order_enquiries_category_agent
+3.    >>> store_miscellanous_messages_to_bucket_agent
+3.1        > notify_dicord_miscellanous_messages_category_agent
+3.    > structure_output_order_parser_agent
+3.1      >>> rephrase_query_agent
+3.1.1        > store_to_enquiries_bucket_agent
+3.1.2          > notify_discord_order_enquiries_category_agent
+3.2      >>> store_miscellanous_messages_to_bucket_agent
+3.2.1        > notify_dicord_miscellanous_messages_category_agent
+3.3      >>> store_to_order_bucket_agent
+3.3.1        > notify_dicord_order_category_agent
+'''
 
 ###############################
 ###  GRAPH NODES AND EDGES  ###

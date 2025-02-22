@@ -143,6 +143,12 @@ len(df)
 df.to_csv("dataset_cleaned.csv", index=False) 
 ```
 
+**be carefull**
+- if running several instances like you have installed one `sudo apt install memcached`
+  and you have another one which is a `python` one running from your virtual environment,
+  you might face errors not finding the cache key/value when using the terminal eg.:`echo "get the_green_garden_vegan_burger" | nc localhost 11211`
+  In this case, you might want to just use the programatic way in a python script to check if data has been cached properly using `cache.get(<key>)`
+
 # diagram
 - minimal diagram very high level: [diagram](https://excalidraw.com/#json=iJCmbJ1I0pwlXhDENCmzw,bxkB1DpYXkZA3WPuNWwNZg)
 
@@ -335,7 +341,7 @@ for index, row in df.iterrows():
 
 # Next
 - [x] create a module with function that handles the `Alibaba Bert nlp` model similarity checker
-- [] create a script that saves the menu to database and saved the database content to cache
+- [x] create a script that saves the menu to database and saved the database content to cache
 - [] create the first agent that checks the messages if orders or not and send to other agents:
   - [] agent that treat orders and creates structured output of the order
   - [] agent that classified messages as miscellaneous or order inquiry
@@ -396,4 +402,11 @@ tensor([0]) # getting the index using `.nonzero(as_tuple=True)[0]`
 - last test -> print(similarities[0][0].nonzero(as_tuple=True)[0].item(), input_texts[similarities[0][0].nonzero(as_tuple=True)[0].item()]) and print(similarities2[0][4].item()):
 0 what is a manga kissa? # using the index to now print the target text that correspond to score
 0.8452041149139404
+```
+
+
+# TTL issue
+when `TTL` is greater than 30 days the time is interpreted as `Unix` timestamp so you need to use calculation like:
+```python
+ttl = int(time.time() + 180 * 24 * 60 * 60)
 ```

@@ -62,7 +62,7 @@ def call_llm(query: str, prompt_template_part: str, schema: str, partial_variabl
     from llms.llms import groq_llm_mixtral_7b
     
     prompt_and_model = prompt | groq_llm_mixtral_7b
-    print(prompt_and_model)
+    print("prompt_and_model: ", prompt_and_model)
     response = prompt_and_model.invoke({"query": query, "response_schema": schema})
     print("RESPONSE: ", response.content)
     # parse content from dict
@@ -93,7 +93,7 @@ def call_llm(query: str, prompt_template_part: str, schema: str, partial_variabl
         response_parsed = response.content
     # transform to dict
     # response_content_to_dict = string_to_dict(response_parsed)
-    response_content_to_dict = string_to_dict(response_parsed)
+    response_content_to_dict = string_to_dict(response_parsed.replace("'", "\""))
     print("Response content dict: ", response_content_to_dict)
     return response_content_to_dict
 

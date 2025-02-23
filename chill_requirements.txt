@@ -4,6 +4,8 @@ flask-pgsql==0.0.10
 greenlet==3.1.1
 importlib-metadata==8.0.0
 jaraco.collections==5.1.0
+langchain-groq==0.2.4
+langgraph==0.2.74
 pandas==2.2.3
 pip-chill==1.0.3
 platformdirs==4.2.2

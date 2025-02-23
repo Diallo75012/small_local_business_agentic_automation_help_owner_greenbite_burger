@@ -8,6 +8,7 @@ from langgraph.graph import MessagesState
 from langgraph.prebuilt import ToolNode
 from agents.llms.llms import (
   groq_llm_mixtral_7b,
+  groq_llm_mixtral_larger,
   groq_llm_llama3_70b_versatile,
 )
 from helpers.similarity_search_checker import similarity_check_on_the_fly

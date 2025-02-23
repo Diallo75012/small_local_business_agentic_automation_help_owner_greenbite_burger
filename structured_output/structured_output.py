@@ -1,3 +1,8 @@
+message_interpreter_order_or_other_schema={
+  "order": "answer 'true' if it is an order otherwise 'false'",
+  "other": "answer 'true' if it is not an order otherwise 'false'"  
+}
+
 message_classification_schema={
   "order": "answer with only one word. 'true' if it is a genuine order otherwise 'false'. if this field is equal to 'true' all others should be 'false'",
   "enquiry": "answer with only one word. 'true' if it is not an order but a genuine enquiry otherwise 'false'. if this field is equal to 'true' all others should be 'false'",

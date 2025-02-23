@@ -6,13 +6,16 @@ import json
 import time
 import random
 import pandas as pd
+from agents.order_automation_agent import order_automation_agent_team
 from dotenv import load_dotenv, set_key
 
 load_dotenv(dotenv_path='.vars.env', override=True)
 
+'''
 MESSAGE_INDEX_TRACKER = json.loads(os.getenv("MESSAGE_INDEX_TRACKER"))
 print("Message index tracker env var value: ", MESSAGE_INDEX_TRACKER, type(MESSAGE_INDEX_TRACKER))
-  
+'''
+
 '''
 create dataframe with pandas from csv file in a priodic manner from a certain row number and record that row in the .vars.env file
 '''
@@ -61,7 +64,7 @@ print("new index value in env var now: ", int(os.getenv("MESSAGE_INDEX_TRACKER")
 # now simulate an id 37 that you are going to use to fetch the csv file again but from that index until the end of it
 df_fetch_form_index = pd.read_csv("dataset_cleaned.csv").index[37:]
 print("len new df fetched from index: ", len(df_fetch_form_index))
-'''
+
 
 # add messages to database using the frequency way
 from postgresql_tables_creations import (
@@ -82,3 +85,11 @@ for index, row in df.iterrows():
   db.session.add(new_message)
   db.session.commit()
   print(f"Data added to db: ", index, row.timestamp, row.message)
+'''
+
+
+if __name__ == "__main__":
+  #import json
+  #load_dotenv()
+  user_query = os.getenv("USER_INITIAL_QUERY")
+  print(order_automation_agent_team(user_query))

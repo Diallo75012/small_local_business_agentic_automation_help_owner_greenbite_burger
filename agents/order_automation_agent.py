@@ -5,17 +5,28 @@ from typing import Dict, List, Tuple, Any, Optional, Union
 # models
 from llms.llms import (
   groq_llm_mixtral_7b,
+  groq_llm_mixtral_larger,
   groq_llm_llama3_70b_versatile,
 )
 # Tools
-from tools.tools import (
-)
+#from tools.tools import (
+#)
 # structured output
 from structured_output.structured_output import (
+  message_interpreter_order_or_other_schema,
   message_classification_schema,
 )
 # prompts
 from prompts.prompts import (
+  message_interpreter_order_or_other_prompt,
+  message_classification_prompt,
+)
+# helpers
+from helpers import (
+  call_llm,
+  prompt_creation,
+  beautiful_graph_output,
+  safe_json_dumps,
 )
 # langchain and langgraph lib
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -27,7 +38,7 @@ from dotenv import load_dotenv, set_key
 
 
 # load env vars
-load_dotenv(dotenv_path='.env', override=False)
+load_dotenv(dotenv_path=".env", override=False)
 load_dotenv(dotenv_path=".vars.env", override=True)
 
 '''
@@ -49,6 +60,60 @@ load_dotenv(dotenv_path=".vars.env", override=True)
 3.3.1        > notify_dicord_order_category_agent
 '''
 
+# FIRST NODE
+def intergraph_agent(state: MessagesState):
+  messages = state["messages"]
+  last_message = messages[-1].content
+  return {"messages": [{"role": "ai", "content": last_message}]}
+
+# CONDITIONAL EDGE
+def message_interpreter_order_or_other_agent(state: MessagesState):
+  messages = state["messages"]
+  last_message = messages[-1].content
+
+  query = prompt_creation.prompt_creation(message_interpreter_order_or_other_prompt["human"], message=last_message)
+  print("query: ",query)
+  # 
+  try:
+    print("calling llm")
+    decision = call_llm.call_llm(query, message_interpreter_order_or_other_prompt["system"]["template"], message_interpreter_order_or_other_schema)
+    print("decision: ", decision)
+    if decision["order"].lower() == "true":
+      # update state message
+      {"messages": [{"role": "ai", "content": json.dumps({"order":last_message})}]}
+      return "order_message_items_parser_agent"
+    # update state message
+    {"messages": [{"role": "ai", "content": json.dumps({"other": last_message})}]}
+    return "non_orders_messages_manager_agent"
+  except Exception as e:
+    # update state message
+    {"messages": [{"role": "ai", "content": json.dumps({"error": f"An error occured while trying to interpret if message is a genuine order or another type of message: {e}"})}]}
+    return "error_handler"
+
+# NODE
+def order_message_items_parser_agent(state: MessagesState):
+  messages = state["messages"]
+  last_message = messages[-1].content
+  return {"messages": [{"role": "ai", "content": json.dumps({"from_parser_agent":last_message})}]}
+
+# NODE
+def non_orders_messages_manager_agent(state: MessagesState):
+  messages = state["messages"]
+  last_message = messages[-1].content
+  return {"messages": [{"role": "ai", "content": json.dumps({"from_other_messages_manager_agent":last_message})}]}
+
+# LAST NODE
+def last_report_agent(state: MessagesState):
+  messages = state["messages"]
+  last_message = messages[-1].content
+  return {"messages": [{"role": "ai", "content": json.dumps({"report_path": f"{last_message} - Report Path..."})}]}
+
+# ERROR NODE
+def error_handler(state: MessagesState):
+  messages = state["messages"]
+  last_message = messages[-1].content
+  return {"messages": [{"role": "ai", "content": json.dumps({"error":last_message})}]}
+
 ###############################
 ###  GRAPH NODES AND EDGES  ###
 ###############################
@@ -56,15 +121,22 @@ load_dotenv(dotenv_path=".vars.env", override=True)
 workflow = StateGraph(MessagesState)
 
 # nodes
+workflow.add_node("intergraph_agent", intergraph_agent)
+workflow.add_node("order_message_items_parser_agent", order_message_items_parser_agent)
+workflow.add_node("non_orders_messages_manager_agent", non_orders_messages_manager_agent)
+workflow.add_node("last_report_agent", last_report_agent)
 workflow.add_node("error_handler", error_handler)
 
 # edges
-workflow.set_entry_point("analyse_user_query_safety")
+workflow.set_entry_point("intergraph_agent")
 workflow.add_conditional_edges(
-  "analyse_user_query_safety",
-  safe_or_not
+  "intergraph_agent",
+  message_interpreter_order_or_other_agent,
 )
+workflow.add_edge("order_message_items_parser_agent", "last_report_agent")
+workflow.add_edge("non_orders_messages_manager_agent", "last_report_agent")
 # end
+workflow.add_edge("last_report_agent", END)
 workflow.add_edge("error_handler", END)
 
 # compile
@@ -93,7 +165,7 @@ def order_automation_agent_team(user_query):
       output = beautiful_graph_output.beautify_output(step)
       print(f"Step {count}: {output}")
       try:
-        final_output = safe_json_dumps(step)
+        final_output = safe_json_dumps.safe_json_dumps(step)
       except TypeError as e:
         final_output = json.dumps({"error": f"Invalid final output format: {e}"})
 
@@ -110,17 +182,13 @@ def order_automation_agent_team(user_query):
     except json.JSONDecodeError:
       final_output = json.dumps({"error": "Invalid final output format"})
 
-  # final_output_agent content should be of type json.dumps() as we json.dumped all transmitted messages
-  #final_output_agent = final_output["messages"][-1]["content"]
-  with open("logs/retrieval_agent_final_output.log", "w", encoding="utf-8") as final_output_log:
-    final_output_log.write(json.dumps({"final_output": final_output}))
   return final_output
 
 
-"""
+'''
 if __name__ == '__main__':
   import json
   load_dotenv()
   user_query = os.getenv("USER_INITIAL_QUERY")
   order_automation_agent_team(user_query)
-"""
+'''

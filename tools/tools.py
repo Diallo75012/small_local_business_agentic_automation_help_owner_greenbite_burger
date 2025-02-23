@@ -6,10 +6,24 @@ from typing import Dict, List, Tuple, Any, Optional
 from langchain_core.tools import tool, Tool
 from langgraph.graph import MessagesState
 from langgraph.prebuilt import ToolNode
-from agents.llms.llms import (
+# LLMs
+from llms.llms import (
   groq_llm_mixtral_7b,
   groq_llm_mixtral_larger,
   groq_llm_llama3_70b_versatile,
+)
+# structured output
+from structured_output.structured_output import (
+  order_message_items_parser_schema,
+)
+# prompts
+from prompts.prompts import (
+  order_message_items_parser_prompt,
+)
+# helpers
+from helpers import (
+  call_llm,
+  prompt_creation,
 )
 from helpers.similarity_search_checker import similarity_check_on_the_fly
 from dotenv import load_dotenv
@@ -50,6 +64,32 @@ def message_bucket_classifier(message: str, item_names: List) -> Dict:
   return "order"
 
 # TOOLS
+# order message items parser
+@tool
+def order_message_items_parser(state: MessagesState = MessagesState()):
+  """
+  Description:
+  parses the different items from the order to have separate distinct names and quantities
+
+  Parameter:
+  None
+
+  returns:
+  dictionary with item names and their quantities ordered by user
+  """
+
+  # get the rest
+  query = prompt_creation.prompt_creation(order_message_items_parser_prompt["human"], message=last_message)
+  print("query: ",query)
+
+  try:
+    print("calling llm")
+    parsed_order_items = call_llm.call_llm(query, order_message_items_parser_prompt["system"]["template"], order_message_items_parser_schema)
+    print("parsed order items: ", parsed_order_items, type(parsed_order_items))
+    return {"messages": [{"role": "tool", "content": json.dumps({"success": parsed_order_items})}]}
+  except Exception as e:
+    return {"messages": [{"role": "tool", "content": json.dumps({"error": f"An error occured while using tool to parse order items: {e}"})}]}
+
 # message classifier tool
 @tool
 def message_classifier(state: MessagesState = MessagesState()):
@@ -82,6 +122,6 @@ def message_classifier(state: MessagesState = MessagesState()):
 ### THIS TO BE USED AND EXPORTED ###
 ####################################
 
-# log analyzer notifier tool
-log_analyzer_notififier_tool_node = groq_llm_llama3_70b_versatile.bind_tools([message_classifier])
-llm_with_log_analyzer_notififier_tool_choice = groq_llm_llama3_70b_versatile.bind_tools([message_classifier])
+# order message items parser tool
+order_message_items_parser_tool_node = groq_llm_llama3_70b_versatile.bind_tools([order_message_items_parser])
+llm_with_order_message_items_parser_tool_choice = groq_llm_llama3_70b_versatile.bind_tools([order_message_items_parser])

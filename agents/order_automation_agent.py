@@ -10,8 +10,8 @@ from llms.llms import (
 )
 # Tools
 from tools.tools import (
-  log_analyzer_notififier_tool_node,
-  llm_with_log_analyzer_notififier_tool_choice,
+  order_message_items_parser_tool_node,
+  llm_with_order_message_items_parser_tool_choice,
 )
 # structured output
 from structured_output.structured_output import (
@@ -21,6 +21,7 @@ from structured_output.structured_output import (
 # prompts
 from prompts.prompts import (
   message_interpreter_order_or_other_prompt,
+  order_message_items_parser_prompt,
   message_classification_prompt,
 )
 # helpers
@@ -75,68 +76,55 @@ def message_interpreter_order_or_other_agent(state: MessagesState):
 
   query = prompt_creation.prompt_creation(message_interpreter_order_or_other_prompt["human"], message=last_message)
   print("query: ",query)
-  # 
+
   try:
     print("calling llm")
     decision = call_llm.call_llm(query, message_interpreter_order_or_other_prompt["system"]["template"], message_interpreter_order_or_other_schema)
     print("decision: ", decision, type(decision))
     if decision["order"].lower() == "true":
-      print("!")
       # update state message
       state["messages"] + [{"role": "ai", "content": json.dumps({"order": last_message})}]
-      return "order_message_items_parser_agent"
-    pritn("2")
+      return "tool_order_message_items_parser_agent"
     # update state message
     state["messages"] + [{"role": "ai", "content": json.dumps({"other": last_message})}]
     return "non_orders_messages_manager_agent"
   except Exception as e:
-    print("3: ", e)
     # update state message
     state["messages"] + [{"role": "ai", "content": json.dumps({"error": f"An error occured while trying to interpret if message is a genuine order or another type of message: {e}"})}]
     return "error_handler"
 
 # NODE
-def tool_notifier_agent(state: MessagesState):
+def tool_order_message_items_parser_agent(state: MessagesState):
   messages = state['messages']
   last_message = messages[-1].content
 
-  # Generate a query
-  query = prompt_creation.prompt_creation(tool_notifier_agent_prompt["human"], user_initial_query="I need to send logs issues notifications to Discord for the Devops security team")
+  # Generate a query, we keep json.dumps() format of last_message as function need a `str` which will do!
+  query = prompt_creation.prompt_creation(order_message_items_parser_prompt["human"], message=last_message)
   print("QUERY: ", query)
 
   try:
-    response = llm_with_log_analyzer_notififier_tool_choice.invoke(json.dumps(query))
-    print("LLM with tool choice response: ", response)
+    response = llm_with_order_message_items_parser_tool_choice.invoke(json.dumps(query))
+    print("LLM with tool choice response: ", response, type(response))
     return {"messages": [response]}
   except Exception as e:
-    return {"messages": [{"role": "tool", "content": json.dumps({"error": f"An error occurred: {e}"})}]
+    return {"messages": [{"role": "tool", "content": json.dumps({"error": f"An error occurred: {e}"})}]}
 
 # CONDITIONAL EDGE    
-
-def discord_notification_flow_success_or_error(state: MessagesState):
+def order_message_items_parser_success_or_error(state: MessagesState):
     messages = state['messages']
-    print("Messages coming from discord sent notification agent: ", messages, type(messages))
     last_message = messages[-1].content
-    print("Last message content (discord notification conditional edge): ", last_message)
-
-    try:
-        # returns: {'messages': [{'role': 'ai', 'content': '{"success": {"success": "All logs have been transmitted to DeviOps/Security team."}}'}]}
-        # so json.loads is done once in the full message and inside on the `.content` to be able to access `success`
-        last_message_data = json.loads(json.loads(last_message)['messages'][-1]['content'])
-        # Parse the content
-        print("json load last message (discord notification conditional edge): ", last_message_data)
-        if 'success' in last_message_data:
-            return "temporary_log_files_cleaner"
-        return "error_handler"
-    except json.JSONDecodeError as e:
-        print(f"Error decoding JSON: {e}")
-        return "error_handler"
+    print("tool call item parser outcome: ", last_message, type(last_message))
+    
+    # if success we get a dict with Dict[key:list items, key:list quantity, key:list id number]
+    if "success" in last_message:
+      return "score_test_message_relevance_agent"
+    return "error_handler"
 
 # NODE
-def order_message_items_parser_agent(state: MessagesState):
+def score_test_message_relevance_agent(state: MessagesState):
   messages = state["messages"]
-  last_message = messages[-1].content
-  return {"messages": [{"role": "ai", "content": json.dumps({"from_parser_agent":last_message})}]}
+  last_message = json.loads(messages[-1].content)["success"]
+  return {"messages": [{"role": "ai", "content": json.dumps({"from_tool_output_agent":last_message})}]}
 
 # NODE
 def non_orders_messages_manager_agent(state: MessagesState):
@@ -164,7 +152,8 @@ workflow = StateGraph(MessagesState)
 
 # nodes
 workflow.add_node("intergraph_agent", intergraph_agent)
-workflow.add_node("order_message_items_parser_agent", order_message_items_parser_agent)
+workflow.add_node("tool_order_message_items_parser_agent", tool_order_message_items_parser_agent)
+workflow.add_node("order_message_items_parser_tool_node", order_message_items_parser_tool_node)
 workflow.add_node("non_orders_messages_manager_agent", non_orders_messages_manager_agent)
 workflow.add_node("score_test_message_relevance_agent", score_test_message_relevance_agent)
 workflow.add_node("last_report_agent", last_report_agent)
@@ -176,12 +165,13 @@ workflow.add_conditional_edges(
   "intergraph_agent",
   message_interpreter_order_or_other_agent,
 )
-workflow.add_edge("tool_notifier_agent", "log_analyzer_notififier_tool_node")
+
+workflow.add_edge("tool_order_message_items_parser_agent", "order_message_items_parser_tool_node")
 workflow.add_conditional_edges(
-  "log_analyzer_notififier_tool_node",
-  discord_notification_flow_success_or_error
+  "order_message_items_parser_tool_node",
+  order_message_items_parser_success_or_error
 )
-workflow.add_edge("order_message_items_parser_agent", "last_report_agent")
+workflow.add_edge("tool_order_message_items_parser_agent", "last_report_agent")
 workflow.add_edge("non_orders_messages_manager_agent", "last_report_agent")
 # end
 workflow.add_edge("last_report_agent", END)
@@ -219,7 +209,7 @@ def order_automation_agent_team(user_query):
 
   # subgraph drawing
   graph_image = user_query_processing_stage.get_graph().draw_png()
-  with open("retrieval_agent_team.png", "wb") as f:
+  with open("order_automation_agent_team.png", "wb") as f:
     f.write(graph_image)
 
   # Ensure final_output is JSON formatted for downstream consumption

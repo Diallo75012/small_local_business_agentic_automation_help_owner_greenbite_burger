@@ -112,37 +112,64 @@ def tool_order_message_items_parser_agent(state: MessagesState):
 
 # CONDITIONAL EDGE    
 def order_message_items_parser_success_or_error(state: MessagesState):
-    messages = state['messages']
-    last_message = messages[-1].content
-    print("tool call item parser outcome: ", last_message, type(last_message))
+  messages = state['messages']
+  last_message = messages[-1].content
+  print("tool call item parser outcome: ", last_message, type(last_message))
     
-    # if success we get a dict with Dict[key:list items, key:list quantity, key:list id number]
-    if "success" in last_message:
-      return "score_test_message_relevance_agent"
-    return "error_handler"
+  # if success we get a dict with Dict[key:list items, key:list quantity, key:list id number]
+  if "success" in last_message:
+    return "score_test_message_relevance_agent"
+  return "error_handler"
 
 # NODE
-'''
-This should probably be a condition edge instead as if smilimary test is not passed those messages need to go to order enquiry or miscellaneous
-'''
 def score_test_message_relevance_agent(state: MessagesState):
   messages = state["messages"]
+
   # so here it is a bit tricky to the full `role: Tool` answer is json.dumped itself and the message is also json.dumps so we need to unwrap that
+  # eg.: # {'messages': [{'role': 'tool', 'content': '{"success": {"item_names": ["Kale & Quinoa Super Salad"], "item_quantities": [1], "item_ids": [1]}}'}]} type <Dict>
   last_message = json.loads(messages[-1].content)
-  unwrapped_last_message = json.loads(last_message)["messages"][-1]["content"])
+  print("1: ", last_message, type(last_message)) 
+  unwrapped_last_message = json.loads(last_message["messages"][-1]["content"])
   # after the unwrapping we can now access to the tool `success` key which has the dictionary structured output from the LLM response
   tool_parsed_output = unwrapped_last_message["success"]
   # now we are going to create a list of tuple from it getting each item ordered with its quantity [(item_name, quantity), ....]
+
   orders_parsed: List[Tuple] = []
   for i in range(len(tool_parsed_output["item_ids"])):
     orders_parsed.append((tool_parsed_output["item_names"][i], tool_parsed_output["item_quantities"][i]))
 
-  print("Success message output from tool parsing: in score test relevance node: ", orders_parsed, type(orders_parsed))
-  '''
-    Return will need to be updated as we need in this funciton to use the classifier and item name has to pass the test otherwise we will send this to enquiries or miscellaneous.
-    
-  '''
-  return {"messages": [{"role": "ai", "content": json.dumps({"order_parsed": orders_parsed})}]}
+  # we set two lists which are going to divide between the items passing the test ("Are those in the menu or not?") to send those to different concerns
+  genuine_order = []
+  not_genuine_order_or_missing_something = []
+  for elem in orders_parsed:
+    # get the order item name for similarity check against the menu using our other LLM specialized in that task
+    message_order_item = elem[0]
+    # fetch keys of resataurant items stored in env vars from when it has been recorded to cache
+    cache_keys_reaturant_items_not_formatted_yet: List = json.loads(os.getenv("CACHE_KEYS"))
+    # get the keys formatted as correct text chunks so that LLM can understand (space between words)
+    restaurant_item_names = [ elem.replace("_", " ") for elem in cache_keys_reaturant_items_not_formatted_yet]   
+    similarity_test_result = similarity_check_on_the_fly(restaurant_item_names, message_order_item, float(os.getenv("SIMILARITY_THRESHOLD")))
+
+    # the returned value could be boolean like a yes or no but have opted for more insightful return so that code can be articulated different ways
+    # here we are going to just check that the score is above the threshold
+    if float(similarity_test_result["score"]) > os.getenv("SIMILARITY_THRESHOLD"):
+      genuine_order.append(elem)
+    else:
+      not_genuine_order_or_missing_something.append(elem)
+
+  return {"messages": [{"role": "ai", "content": json.dumps({"genuine_order": genuine_order, "not_genuine_order_or_missing_something": not_genuine_order_or_missing_something})}]}
+
+def relevance_test_passed_or_not(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  genuine_order = last_message["genuine_order"]
+  not_genuine_order_or_missing_something = last_message["not_genuine_order_or_missing_something"]
+  
+  if len(genuine_order) > 0:
+    return "send_order_to_discord_and_save_to_bucket"
+  elif len(not_genuine_order_or_missing_something) > 0:
+    return "evalutor_enquiry_or_miscellaneous_message_agent"
+  return "error_handler"
 
 # NODE
 def non_orders_messages_manager_agent(state: MessagesState):
@@ -189,7 +216,10 @@ workflow.add_conditional_edges(
   "order_message_items_parser_tool_node",
   order_message_items_parser_success_or_error
 )
-workflow.add_edge("score_test_message_relevance_agent", "last_report_agent")
+workflow.add_conditional_edges(
+  "score_test_message_relevance_agent",
+  relevance_test_passed_or_not
+)
 workflow.add_edge("non_orders_messages_manager_agent", "last_report_agent")
 # end
 workflow.add_edge("last_report_agent", END)

@@ -420,3 +420,13 @@ ttl = int(time.time() + 180 * 24 * 60 * 60)
   Make sure you are not mixing up the `ToolNode()` with the other llm which is a `bind_tools()`
 - error: **tool_call[id]**
   When you see those errors change the LLM as some are not tool friendly. 
+
+# issue with states messages being accessed from tools functions
+```python
+@tool
+def <Your_Tool_Function>(<Your_Arguments>, state: MessagesState):
+  # this is how you get all those messages, then use `[-1]` for last message fro eg.
+  current_messages = state.get_all_messages()
+```
+
+

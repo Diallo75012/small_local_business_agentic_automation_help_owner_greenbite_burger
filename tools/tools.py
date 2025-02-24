@@ -78,8 +78,8 @@ def order_message_items_parser(state: MessagesState = MessagesState()):
   dictionary with item names and their quantities ordered by user
   """
 
-  # get the rest
-  query = prompt_creation.prompt_creation(order_message_items_parser_prompt["human"], message=last_message)
+  # pass in `USER_INITIAL_QUERY` to get items parsed from it
+  query = prompt_creation.prompt_creation(order_message_items_parser_prompt["human"], message=os.getenv("USER_INITIAL_QUERY"))
   print("query: ",query)
 
   try:
@@ -123,5 +123,5 @@ def message_classifier(state: MessagesState = MessagesState()):
 ####################################
 
 # order message items parser tool
-order_message_items_parser_tool_node = groq_llm_llama3_70b_versatile.bind_tools([order_message_items_parser])
+order_message_items_parser_tool_node = ToolNode([order_message_items_parser])
 llm_with_order_message_items_parser_tool_choice = groq_llm_llama3_70b_versatile.bind_tools([order_message_items_parser])

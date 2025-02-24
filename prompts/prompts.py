@@ -48,6 +48,10 @@ order_message_items_parser_prompt = {
     "template": "{message}",
     "input_variables": {"message": "",}
   },
+  "tool_call_choice": {
+    "template": "Analyze user query: {message}. And choose the right tool that parses the different items from the order to have separate distinct names and quantities.",
+    "input_variables": {"message": "",}
+  },
   "ai": {
     "template": "",
     "input_variables": {}

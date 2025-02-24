@@ -414,3 +414,9 @@ ttl = int(time.time() + 180 * 24 * 60 * 60)
 # watchdog doc
 - if wanted in the future to use watchdog that will trigger agent whenever `.csv` file is changed so lines are added for example.
 [watchdoc events handler for file change](https://pythonhosted.org/watchdog/api.html?highlight=modified#watchdog.events.FileSystemEventHandler.on_modified)
+
+# errors with tool calls
+- error: **ValueError: Invalid input type <class 'dict'>. Must be a PromptValue, str, or list of BaseMessages**
+  Make sure you are not mixing up the `ToolNode()` with the other llm which is a `bind_tools()`
+- error: **tool_call[id]**
+  When you see those errors change the LLM as some are not tool friendly. 

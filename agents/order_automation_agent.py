@@ -97,14 +97,15 @@ def message_interpreter_order_or_other_agent(state: MessagesState):
 def tool_order_message_items_parser_agent(state: MessagesState):
   messages = state['messages']
   last_message = messages[-1].content
-
+  print("Last message received in tool_order_message_items_parser_agent: ", last_message)
   # Generate a query, we keep json.dumps() format of last_message as function need a `str` which will do!
-  query = prompt_creation.prompt_creation(order_message_items_parser_prompt["human"], message=last_message)
-  print("QUERY: ", query)
+  query = prompt_creation.prompt_creation(order_message_items_parser_prompt["tool_call_choice"], message=last_message)
+  print("QUERY: ", query, type(query))
 
   try:
-    response = llm_with_order_message_items_parser_tool_choice.invoke(json.dumps(query))
+    response = llm_with_order_message_items_parser_tool_choice.invoke(query)
     print("LLM with tool choice response: ", response, type(response))
+    print("reponse tool call: ", response.tool_calls, type(response.tool_calls))
     return {"messages": [response]}
   except Exception as e:
     return {"messages": [{"role": "tool", "content": json.dumps({"error": f"An error occurred: {e}"})}]}
@@ -171,7 +172,7 @@ workflow.add_conditional_edges(
   "order_message_items_parser_tool_node",
   order_message_items_parser_success_or_error
 )
-workflow.add_edge("tool_order_message_items_parser_agent", "last_report_agent")
+workflow.add_edge("score_test_message_relevance_agent", "last_report_agent")
 workflow.add_edge("non_orders_messages_manager_agent", "last_report_agent")
 # end
 workflow.add_edge("last_report_agent", END)

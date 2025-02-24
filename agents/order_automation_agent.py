@@ -122,10 +122,27 @@ def order_message_items_parser_success_or_error(state: MessagesState):
     return "error_handler"
 
 # NODE
+'''
+This should probably be a condition edge instead as if smilimary test is not passed those messages need to go to order enquiry or miscellaneous
+'''
 def score_test_message_relevance_agent(state: MessagesState):
   messages = state["messages"]
-  last_message = json.loads(messages[-1].content)["success"]
-  return {"messages": [{"role": "ai", "content": json.dumps({"from_tool_output_agent":last_message})}]}
+  # so here it is a bit tricky to the full `role: Tool` answer is json.dumped itself and the message is also json.dumps so we need to unwrap that
+  last_message = json.loads(messages[-1].content)
+  unwrapped_last_message = json.loads(last_message)["messages"][-1]["content"])
+  # after the unwrapping we can now access to the tool `success` key which has the dictionary structured output from the LLM response
+  tool_parsed_output = unwrapped_last_message["success"]
+  # now we are going to create a list of tuple from it getting each item ordered with its quantity [(item_name, quantity), ....]
+  orders_parsed: List[Tuple] = []
+  for i in range(len(tool_parsed_output["item_ids"])):
+    orders_parsed.append((tool_parsed_output["item_names"][i], tool_parsed_output["item_quantities"][i]))
+
+  print("Success message output from tool parsing: in score test relevance node: ", orders_parsed, type(orders_parsed))
+  '''
+    Return will need to be updated as we need in this funciton to use the classifier and item name has to pass the test otherwise we will send this to enquiries or miscellaneous.
+    
+  '''
+  return {"messages": [{"role": "ai", "content": json.dumps({"order_parsed": orders_parsed})}]}
 
 # NODE
 def non_orders_messages_manager_agent(state: MessagesState):

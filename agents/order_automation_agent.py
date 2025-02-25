@@ -16,13 +16,11 @@ from tools.tools import (
 # structured output
 from structured_output.structured_output import (
   message_interpreter_order_or_other_schema,
-  message_classification_schema,
 )
 # prompts
 from prompts.prompts import (
   message_interpreter_order_or_other_prompt,
   order_message_items_parser_prompt,
-  message_classification_prompt,
 )
 # helpers
 from helpers import (
@@ -181,12 +179,27 @@ def send_order_to_discord_and_save_to_bucket(state: MessagesState):
   last_message = json.loads(messages[-1].content)
   genuine_order = last_message["genuine_order"]
 
-  '''
-    Need to put logic to use the discord helper that will send it to discord using the webhook
-  '''
-  return {"messages": [{"role": "ai", "content": genuine_order}]}
+  try:
+    # use webhook helper to send notification to the right Discord room (Order)
+    send_discord_notification_to_target_room.send_file_to_discord(genuine_order, "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
+    return {"messages": [{"role": "ai", "content": json.loads{{"success": "Order message successfully sent to Discord."}}}]}
+  except Exception as e:
+    return {"messages": [{"role": "ai", "content": json.dumps{{"error": f"An error occurred while sending Order message to Discord: {e}"}}}]}
 
 # CONDITIONAL EDGE
+def message_send_to_discord_success_or_not(state: MessageState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  
+  # check if `success` or `error`
+  if "success" in last_message:
+    return "record_message_to_order_bucket" # need to do this function
+  elif "error" in last_message:
+    return "error_handler"
+  # for anything else goes to error (whatever is catched here require code refactoring or adding logic to handle that) 
+  return "error_handler"
+
+# NODE
 def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
   '''
     This Node will be used as center to check other messages,
@@ -196,41 +209,79 @@ def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
   '''
   messages = state['messages']
   last_message = json.loads(messages[-1].content)
-  
+  enquiries_final_bucket = []
+  miscellameous_final_bucket = []
+
   try:
     # check if the key exist and do the processing otherwise just do processing of the `last_message` directly as it is already `json.loads()`
-    if last_message["not_genuine_order_or_missing_something"]
-      # do the processing logic to check message using `last_message["not_genuine_order_or_missing_something"]`
-      print("shibuya key present")
-      # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellameous`
-      return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from similarity test faillure successfully classified."})}]}
-    elif:
-      # do the processing logic to check messages isung `last_message` directly checking key `other` (last_message['other'])
-      print("shibuya key not present evaluating raw message")
-      # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellameous`
-      return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from initial evaluator successfully classified."})}]}
-  except Exception as e:
-    # update state before going to next conditional edge with the error message
-    return {"messages": [{"role": "ai", "content": json.dumps({"error": "An error occured while trying to evalute message if enquiry or miscellaneous: {e}"})}]}
+    # `last_message["not_genuine_order_or_missing_something"]` is type `List`
+    if last_message["not_genuine_order_or_missing_something"]:
 
-  '''
-  Make the evaluator function to return in the schema structured output only two keys `enquiry`/`miscellaneous` with `true` or `false`
-  '''
-  '''
-    Here need to create logic to reevaluate message giving just two altrernatives, order enquiry or miscellaneous
-  '''
-  # dummy return statement for the moment
-  return {"messages": [{"role": "ai", "content": last_message}]}
+      # we evalute the message
+      for message in last_message["not_genuine_order_or_missing_something"]:
+
+        query = prompt_creation.prompt_creation(evalutor_enquiry_or_miscellaneous_message_prompt["human"], message=message)
+        print("query: ",query)
+        decision = call_llm.call_llm(query, evalutor_enquiry_or_miscellaneous_message_prompt["system"]["template"], evalutor_enquiry_or_miscellaneous_message_schema)
+        print("decision: ", decision, type(decision))
+
+        if decision["enquiry"].lower() == "true":
+          # append the right bucket
+          enquiries_final_bucket.append(message)
+        if decision["miscellaneous"].lower() == "true":
+          # append the right bucket
+          miscellameous_final_bucket.append(message)
+
+      # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellameous` (next node will check message [-1] and get [-2])
+      state["messages"] + [{"role": "ai", "content": json.dumps({"enquiries_final_bucket": enquiries_final_bucket, "miscellameous_final_bucket": miscellameous_final_bucket})}]
+      return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from similarity test faillure successfully classified."})}]}
+    
+    elif last_message["other"]:
+      # we evaluate the message
+      query = prompt_creation.prompt_creation(evalutor_enquiry_or_miscellaneous_message_prompt["human"], message=last_message["other"])
+      print("query: ",query)
+      decision = call_llm.call_llm(query, evalutor_enquiry_or_miscellaneous_message_prompt["system"]["template"], evalutor_enquiry_or_miscellaneous_message_schema)
+      print("decision: ", decision, type(decision))
+      
+      if decision["enquiry"].lower() == "true":
+        # update state (next node will check message [-1] and get [-2])
+        state["messages"] + [{"role": "ai", "content": json.dumps({"enquiry": last_message["other"]})}]
+      if decision["miscellaneous"].lower() == "true":
+        # append state (next node will check message [-1] and get [-2])
+        state["messages"] + [{"role": "ai", "content": json.dumps({"miscellaneous": last_message["other"]})}]
+    
+      return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from initial evaluator successfully classified."})}]}
+    
+    # going to next step (next node will check message [-1] and go `error_handler`)
+    return {"messages": [{"role": "ai", "content": json.dumps{{"error": f"An error occurred while trying to evaluate message if enquiry or miscellaneous. Last message missed keys: `not_genuine_order_or_missing_something` or `other`"}}}]}
+  
+  except Exception as e:
+    # going to next step with the error message (next node will check message [-1] and go `error_handler`)
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": "An exception occured while trying to evalute message if enquiry or miscellaneous: {e}"})}]}
 
 # CONDITIONAL EDGE
 def evaluator_success_or_error(state: MessagesState):
-
+  '''
+    Here we check the results of the messages evaluation and catch all keys possible
+    to send to the right Discord room: `record_message_to_enquiry_discord_room` or `record_message_to_miscellaneous_dicsord_room`
+  '''
+  messages = state["messages"]
+  last_message = json.loads(messages[-1].content)
+  previous_state_message_updated = json.loads(messages[-2].content)
+  
+  # we check if it successfull and check the updated message to know where we are going to send the message
+  if "success" in last_message:
+    # will check if those keys exists
+    if "enquiry" or "enquiries_final_bucket" in previous_state_message_updated:
+      return "record_message_to_enquiry_dicsord_room" # need to do this function and other logic for node recording to bucket
+    elif "miscellaneous" or "miscellameous_final_bucket" in previous_state_message_updated:
+      return "record_message_to_miscellaneous_dicsord_room"  # need to do this function and other logic for node recording to bucket
 
 # LAST NODE
 def last_report_agent(state: MessagesState):
   messages = state["messages"]
   last_message = messages[-1].content
-  return {"messages": [{"role": "ai", "content": json.dumps({"report_path": f"{last_message} - Report Path..."})}]}
+  return {"messages": [{"role": "ai", "content": json.dumps({"success": f"{last_message}"})}]}
 
 # ERROR NODE
 def error_handler(state: MessagesState):
@@ -270,8 +321,14 @@ workflow.add_conditional_edges(
   "score_test_message_relevance_agent",
   relevance_test_passed_or_not
 )
-workflow.add_edge("send_order_to_discord_and_save_to_bucket", "last_report_agent")
-workflow.add_edge("evalutor_enquiry_or_miscellaneous_message_agent", "last_report_agent")
+workflow.add_conditional_edges(
+  "send_order_to_discord_and_save_to_bucket",
+  message_send_to_discord_success_or_not
+)
+workflow.add_edge(
+  "evalutor_enquiry_or_miscellaneous_message_agent",
+  evaluator_success_or_error
+)
 # end
 workflow.add_edge("last_report_agent", END)
 workflow.add_edge("error_handler", END)

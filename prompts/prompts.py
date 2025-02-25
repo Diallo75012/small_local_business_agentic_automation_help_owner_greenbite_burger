@@ -58,15 +58,15 @@ order_message_items_parser_prompt = {
   },
 }
 
-message_classification_prompt = {
+evalutor_enquiry_or_miscellaneous_message_prompt = {
   "system": {
     "template":  """You are an expert in restaurant order request messages classification.\n
 
     Your task:\n
-    - Classify messages as order, enquiry or miscellaneous. Only one of those should be `true`.\n
+    - Classify messages as order enquiry or miscellaneous. Only one of those should be `true`.\n
     - Strictly adhere to the following schema for your response:\n
     Schema:\n
-    {message_classification_schema}\n
+    {response_schema}\n
 
     Important:\n
     - Only return a JSON object based on the schema. Do not include any extra text, comments, or fields beyond the schema.\n

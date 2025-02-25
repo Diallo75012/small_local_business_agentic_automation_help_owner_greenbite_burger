@@ -342,8 +342,8 @@ for index, row in df.iterrows():
 # Next
 - [x] create a module with function that handles the `Alibaba Bert nlp` model similarity checker
 - [x] create a script that saves the menu to database and saved the database content to cache
-- [] create the first agent that checks the messages if orders or not and send to other agents:
-  - [] agent that treat orders and creates structured output of the order
+- [x] create the first agent that checks the messages if orders or not and send to other agents:
+  - [x] agent that treat orders and creates structured output of the order
   - [] agent that classified messages as miscellaneous or order inquiry
 - [] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
      so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.

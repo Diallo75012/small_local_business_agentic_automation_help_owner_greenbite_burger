@@ -46,7 +46,7 @@ def similarity_check_on_the_fly(menu_item_names: List, message_order_item: str, 
         # if it is passing the threshold test we get the index corredponding to the `key` text we want to pass to next agent
         for idx in range(len(similarities[0])):
           if similarities[0][idx] == max_similar:
-            print(f"{idx} - {similarities[0][idx]} - {menu_item_names[idx]}")
+            print(f"idx: {idx} - {type(idx)}\nsimilarities: {similarities[0][idx]} - {type(similarities[0][idx])}\nmenu_item_names: {menu_item_names[idx]}")
             return {
               "idx": idx,
               "menu_item_name": menu_item_names[idx],

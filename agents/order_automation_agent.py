@@ -30,6 +30,8 @@ from helpers import (
   prompt_creation,
   beautiful_graph_output,
   safe_json_dumps,
+  similarity_search_checker,
+  send_discord_notification_to_target_room,
 )
 # langchain and langgraph lib
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -87,7 +89,7 @@ def message_interpreter_order_or_other_agent(state: MessagesState):
       return "tool_order_message_items_parser_agent"
     # update state message
     state["messages"] + [{"role": "ai", "content": json.dumps({"other": last_message})}]
-    return "non_orders_messages_manager_agent"
+    return "evalutor_enquiry_or_miscellaneous_message_agent"
   except Exception as e:
     # update state message
     state["messages"] + [{"role": "ai", "content": json.dumps({"error": f"An error occured while trying to interpret if message is a genuine order or another type of message: {e}"})}]
@@ -148,17 +150,19 @@ def score_test_message_relevance_agent(state: MessagesState):
     cache_keys_reaturant_items_not_formatted_yet: List = json.loads(os.getenv("CACHE_KEYS"))
     # get the keys formatted as correct text chunks so that LLM can understand (space between words)
     restaurant_item_names = [ elem.replace("_", " ") for elem in cache_keys_reaturant_items_not_formatted_yet]   
-    similarity_test_result = similarity_check_on_the_fly(restaurant_item_names, message_order_item, float(os.getenv("SIMILARITY_THRESHOLD")))
+    similarity_test_result = similarity_search_checker.similarity_check_on_the_fly(restaurant_item_names, message_order_item, float(os.getenv("SIMILARITY_THRESHOLD")))
 
+    print("Similarity_test_result score type : ", similarity_test_result["score"], type(similarity_test_result["score"]), " - Threshold: ", os.getenv("SIMILARITY_THRESHOLD"))
     # the returned value could be boolean like a yes or no but have opted for more insightful return so that code can be articulated different ways
     # here we are going to just check that the score is above the threshold
-    if float(similarity_test_result["score"]) > os.getenv("SIMILARITY_THRESHOLD"):
+    if float(similarity_test_result["score"]) > float(os.getenv("SIMILARITY_THRESHOLD")):
       genuine_order.append(elem)
     else:
       not_genuine_order_or_missing_something.append(elem)
 
   return {"messages": [{"role": "ai", "content": json.dumps({"genuine_order": genuine_order, "not_genuine_order_or_missing_something": not_genuine_order_or_missing_something})}]}
 
+# CONDITIONAL EDGE
 def relevance_test_passed_or_not(state: MessagesState):
   messages = state['messages']
   last_message = json.loads(messages[-1].content)
@@ -172,10 +176,55 @@ def relevance_test_passed_or_not(state: MessagesState):
   return "error_handler"
 
 # NODE
-def non_orders_messages_manager_agent(state: MessagesState):
-  messages = state["messages"]
-  last_message = messages[-1].content
-  return {"messages": [{"role": "ai", "content": json.dumps({"from_other_messages_manager_agent":last_message})}]}
+def send_order_to_discord_and_save_to_bucket(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  genuine_order = last_message["genuine_order"]
+
+  '''
+    Need to put logic to use the discord helper that will send it to discord using the webhook
+  '''
+  return {"messages": [{"role": "ai", "content": genuine_order}]}
+
+# CONDITIONAL EDGE
+def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
+  '''
+    This Node will be used as center to check other messages,
+    some from the beginning when evaluated as non-order messages,
+    some others when passed the first filter but failed the similarity test,
+    at this time we need to check if key `not_genuine_order_or_missing_something` exist in the `last_message`
+  '''
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  
+  try:
+    # check if the key exist and do the processing otherwise just do processing of the `last_message` directly as it is already `json.loads()`
+    if last_message["not_genuine_order_or_missing_something"]
+      # do the processing logic to check message using `last_message["not_genuine_order_or_missing_something"]`
+      print("shibuya key present")
+      # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellameous`
+      return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from similarity test faillure successfully classified."})}]}
+    elif:
+      # do the processing logic to check messages isung `last_message` directly checking key `other` (last_message['other'])
+      print("shibuya key not present evaluating raw message")
+      # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellameous`
+      return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from initial evaluator successfully classified."})}]}
+  except Exception as e:
+    # update state before going to next conditional edge with the error message
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": "An error occured while trying to evalute message if enquiry or miscellaneous: {e}"})}]}
+
+  '''
+  Make the evaluator function to return in the schema structured output only two keys `enquiry`/`miscellaneous` with `true` or `false`
+  '''
+  '''
+    Here need to create logic to reevaluate message giving just two altrernatives, order enquiry or miscellaneous
+  '''
+  # dummy return statement for the moment
+  return {"messages": [{"role": "ai", "content": last_message}]}
+
+# CONDITIONAL EDGE
+def evaluator_success_or_error(state: MessagesState):
+
 
 # LAST NODE
 def last_report_agent(state: MessagesState):
@@ -199,8 +248,9 @@ workflow = StateGraph(MessagesState)
 workflow.add_node("intergraph_agent", intergraph_agent)
 workflow.add_node("tool_order_message_items_parser_agent", tool_order_message_items_parser_agent)
 workflow.add_node("order_message_items_parser_tool_node", order_message_items_parser_tool_node)
-workflow.add_node("non_orders_messages_manager_agent", non_orders_messages_manager_agent)
+workflow.add_node("evalutor_enquiry_or_miscellaneous_message_agent", evalutor_enquiry_or_miscellaneous_message_agent)
 workflow.add_node("score_test_message_relevance_agent", score_test_message_relevance_agent)
+workflow.add_node("send_order_to_discord_and_save_to_bucket", send_order_to_discord_and_save_to_bucket)
 workflow.add_node("last_report_agent", last_report_agent)
 workflow.add_node("error_handler", error_handler)
 
@@ -220,7 +270,8 @@ workflow.add_conditional_edges(
   "score_test_message_relevance_agent",
   relevance_test_passed_or_not
 )
-workflow.add_edge("non_orders_messages_manager_agent", "last_report_agent")
+workflow.add_edge("send_order_to_discord_and_save_to_bucket", "last_report_agent")
+workflow.add_edge("evalutor_enquiry_or_miscellaneous_message_agent", "last_report_agent")
 # end
 workflow.add_edge("last_report_agent", END)
 workflow.add_edge("error_handler", END)

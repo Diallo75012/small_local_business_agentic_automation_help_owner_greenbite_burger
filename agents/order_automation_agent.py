@@ -185,12 +185,17 @@ def send_order_to_discord_agent(state: MessagesState):
   messages = state['messages']
   last_message = json.loads(messages[-1].content)
   genuine_order = last_message["genuine_order"]
-
+  print("Genuine_order: ", genuine_order, type(genuine_order))
   try:
     # use webhook helper to send notification to the right Discord room (Order)
     for order in genuine_order:
-      send_discord_notification_to_target_room.send_file_to_discord(order, "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
-    return {"messages": [{"role": "ai", "content": json.loads({"success": "Order message successfully sent to Discord."})}]}
+      if isinstance(order, list):
+        print("genuine order list")
+        send_discord_notification_to_target_room.send_file_to_discord(order[0], "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
+      elif isinstance(order, str):
+        print("genuine order str")
+        send_discord_notification_to_target_room.send_file_to_discord(order, "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
+    return {"messages": [{"role": "ai", "content": json.dumps({"success": "Order message successfully sent to Discord."})}]}
   except Exception as e:
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Order message to Discord: {e}"})}]}
 
@@ -218,12 +223,23 @@ def record_message_to_order_bucket_agent(state: MessagesState):
       # we then get the previous message which holds the genuire order at index `[-2]`
       previous_message = json.loads(messages[-2].content)
       genuine_order = previous_message["genuine_order"]
-    
-      # now lets store to database:
-      order = Orders(date=f"{datetime.now()}", message=genuine_order)
-      db.session.add(order)
-      db.session.commit()
-      return {"messages": [{"role": "ai", "content": json.loads({"success": "Order message successfully recorded to database"})}]}
+   
+      for order in genuine_order: # here eg: order = `['Kale & Quinoa Super Salad', 1]` so we get index `0`
+        if isinstance(order, list):
+          print("genuine order list")
+          # we check that it is is real order, no real order can have less than 10 characters
+          if len(order[0]) > 10:
+            # now lets store to database:
+            order = Orders(date=f"{datetime.now()}", message=order[0])
+            db.session.add(order)
+            db.session.commit()
+        elif isinstance(order, str):
+          # now lets store to database as here we are sure to have one unique line of text:
+          print("genuine order str")
+          order = Orders(date=f"{datetime.now()}", message=order)
+          db.session.add(order)
+          db.session.commit()
+      return {"messages": [{"role": "ai", "content": json.dumps({"success": "Order message successfully recorded to database"})}]}
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An error occurred while save order to database: No key names `success` in previous node message, couldn't record message to order bucket."})}]}
   except Exception as e:
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while save order to database: {e}"})}]}
@@ -377,14 +393,27 @@ def record_message_to_enquiry_bucket_agent(state: MessagesState):
     if "enquiry" in last_message:
       # the message is in the `[-1]` at key `enquiry`, we just fetch it
       previous_message = json.loads(messages[-1].content)
-      order_enquiry_message = previous_message["enquiry"]
+      if "enquiries" in previous_message:
+         for enquiry_message in previous_message["enquiries"]:
+           if isinstance(previous_message["enquires"], list):
+             for message in  enquiry_message:
+               # now lets store to database:
+               enquiry = Enquiries(date=f"{datetime.now()}", message=message)
+               db.session.add(enquiry)
+               db.session.commit()
+
+      elif "enquiry" in previous_message: 
+        order_enquiry_message = previous_message["enquiry"]
     
-      # now lets store to database:
-      enquiry = Enquiries(date=f"{datetime.now()}", message=order_enquiry_message)
-      db.session.add(enquiry)
-      db.session.commit()
-      return {"messages": [{"role": "ai", "content": json.loads({"success": "Enquiry message successfully recorded to database"})}]}
+        # now lets store to database:
+        enquiry = Enquiries(date=f"{datetime.now()}", message=order_enquiry_message)
+        db.session.add(enquiry)
+        db.session.commit()
+
+      return {"messages": [{"role": "ai", "content": json.dumps({"success": "Enquiry message successfully recorded to database"})}]}
+
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An error occurred while save enquiry to database: No key `success` present in previous node message. Could not save anything to bucket."})}]}
+
   except Exception as e:
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while save enquiry to database: {e}"})}]}
 
@@ -458,7 +487,7 @@ def write_miscellaneous_message_to_file_agent(state: MessagesState):
   try:
     with open(os.getenv("MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH"), "a", encoding="utf-8") as other_messages_file:
       # we check if we got a single string message and write to file
-      if last_message["miscellaneous"].isinstance("str"):
+      if isinstance(last_message["miscellaneous"], str):
         time_recorded = datetime.now()
         other_messages_file.write(f"{time_recorded} - {last_message['miscellaneous']}")
         return {

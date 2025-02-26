@@ -344,13 +344,13 @@ for index, row in df.iterrows():
 - [x] create a script that saves the menu to database and saved the database content to cache
 - [x] create the first agent that checks the messages if orders or not and send to other agents:
   - [x] agent that treat orders and creates structured output of the order
-  - [] agent that classified messages as miscellaneous or order inquiry
+  - [x] agent that classified messages as miscellaneous or order inquiry
 - [] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
      so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
-- [] create the logic of that agent which works only with the orders and would create a notification to the discord group for `Orders`
-     and checks time in the day to create a csv of orders only.
-- [] have another agentic flow starting with a subprocess that record logs of steps
-     and that will work on the messages filtered as not behing orders and classify those and store those to the corresponding database.
+- [x] create the logic of that agent which works only with the orders and would create a notification to the discord group for `Orders`
+     and checks time in the day to create a csv of orders only. DONE even if have changed it a bit. 
+     we have discord rooms for each categories and only orders and enquiries are saved to database,
+     miscellaneous messages are just written to file (for security reasons) but still sent to discord.
 
 # Similarity search lesson learned for tensors and how to get value score standalone and indexin list
 ```python
@@ -429,4 +429,13 @@ def <Your_Tool_Function>(<Your_Arguments>, state: MessagesState):
   current_messages = state.get_all_messages()
 ```
 
+# Next
+- [] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
+     so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
 
+We have the function `fetch_messages_and_store` in `./helpers/messages_csv_frequent_fetcher_db_storer.py`
+which checks the `csv` file and saves to database keeping track on where it had stopped recording messages simulating incremental incoming messages.
+We just need in the application logic to have a listener which starts the agentic flow when ever a new records have been added to the database.
+using `USER_INITIAL_QUERY` that is sent updating env var and the agent will start like that. So the app will loop over the new rows and start the agentic flow.
+We might need to use subprocesses so that it can run concurrently if more messages are fetched.
+We are not going to push it but could have `Rust` actually handling those processor in order to improve performances (speed) of messages analysis. (`maturin`, `PyO3` and brothers....)

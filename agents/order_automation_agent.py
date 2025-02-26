@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import datetime
 # for typing func parameters and outputs and states
 from typing import Dict, List, Tuple, Any, Optional, Union
 # models
@@ -30,6 +31,12 @@ from helpers import (
   safe_json_dumps,
   similarity_search_checker,
   send_discord_notification_to_target_room,
+)
+# database
+from postgresql_tables_creations import (
+  db,
+  Orders,
+  Enquiries,
 )
 # langchain and langgraph lib
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -90,7 +97,7 @@ def message_interpreter_order_or_other_agent(state: MessagesState):
     return "evalutor_enquiry_or_miscellaneous_message_agent"
   except Exception as e:
     # update state message
-    state["messages"] + [{"role": "ai", "content": json.dumps({"error": f"An error occured while trying to interpret if message is a genuine order or another type of message: {e}"})}]
+    state["messages"] + [{"role": "ai", "content": json.dumps({"error": f"An exception occured while trying to interpret if message is a genuine order or another type of message: {e}"})}]
     return "error_handler"
 
 # NODE
@@ -108,7 +115,7 @@ def tool_order_message_items_parser_agent(state: MessagesState):
     print("reponse tool call: ", response.tool_calls, type(response.tool_calls))
     return {"messages": [response]}
   except Exception as e:
-    return {"messages": [{"role": "tool", "content": json.dumps({"error": f"An error occurred: {e}"})}]}
+    return {"messages": [{"role": "tool", "content": json.dumps({"error": f"An exception occurred: {e}"})}]}
 
 # CONDITIONAL EDGE    
 def order_message_items_parser_success_or_error(state: MessagesState):
@@ -168,35 +175,66 @@ def relevance_test_passed_or_not(state: MessagesState):
   not_genuine_order_or_missing_something = last_message["not_genuine_order_or_missing_something"]
   
   if len(genuine_order) > 0:
-    return "send_order_to_discord_and_save_to_bucket"
+    return "send_order_to_discord_agent"
   elif len(not_genuine_order_or_missing_something) > 0:
     return "evalutor_enquiry_or_miscellaneous_message_agent"
   return "error_handler"
 
 # NODE
-def send_order_to_discord_and_save_to_bucket(state: MessagesState):
+def send_order_to_discord_agent(state: MessagesState):
   messages = state['messages']
   last_message = json.loads(messages[-1].content)
   genuine_order = last_message["genuine_order"]
 
   try:
     # use webhook helper to send notification to the right Discord room (Order)
-    send_discord_notification_to_target_room.send_file_to_discord(genuine_order, "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
-    return {"messages": [{"role": "ai", "content": json.loads{{"success": "Order message successfully sent to Discord."}}}]}
+    for order in genuine_order:
+      send_discord_notification_to_target_room.send_file_to_discord(order, "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
+    return {"messages": [{"role": "ai", "content": json.loads({"success": "Order message successfully sent to Discord."})}]}
   except Exception as e:
-    return {"messages": [{"role": "ai", "content": json.dumps{{"error": f"An error occurred while sending Order message to Discord: {e}"}}}]}
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Order message to Discord: {e}"})}]}
 
 # CONDITIONAL EDGE
-def message_send_to_discord_success_or_not(state: MessageState):
+def order_message_send_to_discord_success_or_not(state: MessagesState):
   messages = state['messages']
   last_message = json.loads(messages[-1].content)
   
   # check if `success` or `error`
   if "success" in last_message:
-    return "record_message_to_order_bucket" # need to do this function
+    return "record_message_to_order_bucket_agent" # need to do this function
   elif "error" in last_message:
     return "error_handler"
   # for anything else goes to error (whatever is catched here require code refactoring or adding logic to handle that) 
+  return "error_handler"
+
+# NODE
+def record_message_to_order_bucket_agent(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  
+  try:
+    # we check again if last message was ok like a double check
+    if "success" in last_message:
+      # we then get the previous message which holds the genuire order at index `[-2]`
+      previous_message = json.loads(messages[-2].content)
+      genuine_order = previous_message["genuine_order"]
+    
+      # now lets store to database:
+      order = Orders(date=f"{datetime.now()}", message=genuine_order)
+      db.session.add(order)
+      db.session.commit()
+      return {"messages": [{"role": "ai", "content": json.loads({"success": "Order message successfully recorded to database"})}]}
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An error occurred while save order to database: No key names `success` in previous node message, couldn't record message to order bucket."})}]}
+  except Exception as e:
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while save order to database: {e}"})}]}
+
+# CONDITIONAL EDGE
+def order_recorded_to_bucket_or_not(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  
+  if "success" in last_message:
+    return "last_report_agent"
   return "error_handler"
 
 # NODE
@@ -210,7 +248,7 @@ def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
   messages = state['messages']
   last_message = json.loads(messages[-1].content)
   enquiries_final_bucket = []
-  miscellameous_final_bucket = []
+  miscellaneous_final_bucket = []
 
   try:
     # check if the key exist and do the processing otherwise just do processing of the `last_message` directly as it is already `json.loads()`
@@ -230,10 +268,10 @@ def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
           enquiries_final_bucket.append(message)
         if decision["miscellaneous"].lower() == "true":
           # append the right bucket
-          miscellameous_final_bucket.append(message)
+          miscellaneous_final_bucket.append(message)
 
-      # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellameous` (next node will check message [-1] and get [-2])
-      state["messages"] + [{"role": "ai", "content": json.dumps({"enquiries_final_bucket": enquiries_final_bucket, "miscellameous_final_bucket": miscellameous_final_bucket})}]
+      # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellaneous` (next node will check message [-1] and get [-2])
+      state["messages"] + [{"role": "ai", "content": json.dumps({"enquiries_final_bucket": enquiries_final_bucket, "miscellaneous_final_bucket": miscellaneous_final_bucket})}]
       return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from similarity test faillure successfully classified."})}]}
     
     elif last_message["other"]:
@@ -253,7 +291,7 @@ def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
       return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from initial evaluator successfully classified."})}]}
     
     # going to next step (next node will check message [-1] and go `error_handler`)
-    return {"messages": [{"role": "ai", "content": json.dumps{{"error": f"An error occurred while trying to evaluate message if enquiry or miscellaneous. Last message missed keys: `not_genuine_order_or_missing_something` or `other`"}}}]}
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An error occurred while trying to evaluate message if enquiry or miscellaneous. Last message missed keys: `not_genuine_order_or_missing_something` or `other`"})}]}
   
   except Exception as e:
     # going to next step with the error message (next node will check message [-1] and go `error_handler`)
@@ -273,14 +311,179 @@ def evaluator_success_or_error(state: MessagesState):
   if "success" in last_message:
     # will check if those keys exists
     if "enquiry" or "enquiries_final_bucket" in previous_state_message_updated:
-      return "record_message_to_enquiry_dicsord_room" # need to do this function and other logic for node recording to bucket
-    elif "miscellaneous" or "miscellameous_final_bucket" in previous_state_message_updated:
-      return "record_message_to_miscellaneous_dicsord_room"  # need to do this function and other logic for node recording to bucket
+      return "record_message_to_enquiry_discord_room_agent"
+    elif "miscellaneous" or "miscellaneous_final_bucket" in previous_state_message_updated:
+      return "record_message_to_miscellaneous_discord_room_agent"  # need to do this function and other logic for node recording to bucket
+  # otherwise just send to error node
+  return "error_handler"
+
+# NODE
+def record_message_to_enquiry_discord_room_agent(state: MessagesState):
+  messages = state["messages"]
+  # here we just catch the previous/previous node messages to get or one message or a list and send to discord depends where it is from
+  previous_state_message_updated = json.loads(messages[-2].content)
+  count = 0
+  # variabble set to check if we get a list for next node or a single enquiry treated as next node need to handle it differently
+  success_list_enquiries_all_sent = False
+  try:
+    # check if it is a single message `enquiry` or a list `enquiries_final_bucket`. (checking dict keys)
+    if "enquiry" in previous_state_message_updated:
+      try:
+        # send messages to discord in the enquiry room
+        single_enquiry_sent_to_discord = send_discord_notification_to_target_room.send_file_to_discord(previous_state_message_updated["enquiry"], "Enquiry", os.getenv("ENQUIRIES_DISCORD_ROOM_WEBHOOK_URL"))
+        print(f"Successfully sent message to enquiry discord room: {previous_state_message_updated['enquiry']}")
+        count += 1
+      except Exception as e:
+        print(f"Error sending enquiry message to discord: {e}")
+        return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Enquiry message to Discord: {e}"})}]}
+    elif "enquiries_final_bucket" in previous_state_message_updated:
+      for enquiry_message in previous_state_message_updated["enquiries_final_bucket"]:
+        try:
+          # send messages to discord in the enquiry room
+          send_discord_notification_to_target_room.send_file_to_discord(enquiry_message, "Enquiry", os.getenv("ENQUIRIES_DISCORD_ROOM_WEBHOOK_URL"))
+          print(f"Successfully sent message to enquiry discord room: {enquiry_message}")
+          count += 1
+          if count == len(previous_state_message_updated["enquiries_final_bucket"]):
+            success_list_enquiries_all_sent = True
+        except Exception as e:
+          print(f"Error sending enquiry message to discord: {e}")
+          return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Enquiry message to Discord: {e}"})}]}
+    # we send the list to next node with key `enquiries` (plural) to next node
+    if success_list_enquiries_all_sent == True:
+      return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Enquiry message(s) successfully sent to discord", "enquiries": previous_state_message_updated["enquiries_final_bucket"]})}]}
+    # otherwise we sent single enquiry to next node with key `enquiry` (singular)
+    return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Enquiry message(s) successfully sent to discord", "enquiry": single_enquiry_sent_to_discord})}]}
+  except Exception as e:
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"Something went wrong. An exception occurred while sending Enquiry message to Discord: {e}"})}]}
+
+# CONDITIONAL EDGE
+def enquiry_message_send_to_discord_success_or_not(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  
+  # check if `success` or `error`
+  if "success" in last_message:
+    return "record_message_to_enquiry_bucket_agent"
+  # for anything else goes to error (whatever is catched here require code refactoring or adding logic to handle that) 
+  return "error_handler"
+
+# NODE
+def record_message_to_enquiry_bucket_agent(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  
+  try:
+    # we check for which key is present `enquiry` singular emaning it is just an  str` to handle or `enquiries` (plural) meaning it is a `list` to handle
+    if "enquiry" in last_message:
+      # the message is in the `[-1]` at key `enquiry`, we just fetch it
+      previous_message = json.loads(messages[-1].content)
+      order_enquiry_message = previous_message["enquiry"]
+    
+      # now lets store to database:
+      enquiry = Enquiries(date=f"{datetime.now()}", message=order_enquiry_message)
+      db.session.add(enquiry)
+      db.session.commit()
+      return {"messages": [{"role": "ai", "content": json.loads({"success": "Enquiry message successfully recorded to database"})}]}
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An error occurred while save enquiry to database: No key `success` present in previous node message. Could not save anything to bucket."})}]}
+  except Exception as e:
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while save enquiry to database: {e}"})}]}
+
+# CONDITIONAL EDGE
+def enquiry_recorded_to_bucket_or_not(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  
+  if "success" in last_message:
+    return "last_report_agent"
+  return "error_handler"
+
+# NODE
+def record_message_to_miscellaneous_discord_room_agent(state: MessagesState):
+  messages = state["messages"]
+  # here we just catch the previous/previous node messages to get or one message or a list and send to discord depends where it is from
+  previous_state_message_updated = json.loads(messages[-2].content)
+  count = 0
+  # variabble set to check if we get a list for next node or a single miscellaneous message treated as next node need to handle it differently
+  success_list_miscellaneous_all_sent = False
+  try:
+    # check if it is a single message `miscellaneous` or a list `miscellaneous_final_bucket`. (checking dict keys)
+    if "miscellaneous" in previous_state_message_updated:
+      try:
+        # send messages to discord in the miscellaneous room
+        # this as success will return the message sent
+        single_miscellaneous_sent_to_discord = send_discord_notification_to_target_room.send_file_to_discord(previous_state_message_updated["miscellaneous"], "Miscellaneous", os.getenv("MISCELLANEOUS_DISCORD_ROOM_WEBHOOK_URL"))
+        print(f"Successfully sent message to miscellaneous discord room: {previous_state_message_updated['miscellaneous']}")
+        count += 1
+      except Exception as e:
+        print(f"Error sending miscellaneous message to discord: {e}")
+        return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending miscellaneous message to Discord: {e}"})}]}
+    elif "miscellaneous_final_bucket" in previous_state_message_updated:
+      for miscellaneous_message in previous_state_message_updated["miscellaneous_final_bucket"]:
+        try:
+          # send messages to discord in the miscellaneous room
+          send_discord_notification_to_target_room.send_file_to_discord(miscellaneous_message, "Miscellaneous", os.getenv("ENQUIRIES_DISCORD_ROOM_WEBHOOK_URL"))
+          print(f"Successfully sent message to miscellaneous discord room: {miscellaneous_message}")
+          count += 1
+          if count == len(previous_state_message_updated["miscellaneous_final_bucket"]):
+            success_list_miscellaneous_all_sent = True
+        except Exception as e:
+          print(f"Error sending miscellaneous message to discord: {e}")
+          return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Miscellaneous message to Discord: {e}"})}]}
+    # we send the list to next node with key `enquiries` (plural) to next node
+    if success_list_miscellaneous_all_sent == True:
+      return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": previous_state_message_updated["miscellaneous_final_bucket"]})}]}
+    # otherwise we sent single miscellaneous to next node with key `miscellaneous` (singular)
+    return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": single_miscellaneous_sent_to_discord})}]}
+  except Exception as e:
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"Something went wrong. An exception occurred while sending Miscellaneous message to Discord: {e}"})}]}
+
+
+# CONDITIONAL EDGE
+def miscellaneous_message_send_to_discord_success_or_not(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  
+  # check if `success` or `error`
+  if "success" in last_message:
+    return "write_miscellaneous_message_to_file_agent"
+  # for anything else goes to error
+  return "error_handler"
+
+# NODE
+def write_miscellaneous_message_to_file_agent(state: MessagesState):
+  messages = state['messages']
+  last_message = json.loads(messages[-1].content)
+  # miscellaneous messages are not saved to database for security reasons but those where sent anyway before to discord specific room for security team to check those.
+  # we are just saving those in a filem we could use a logger system for that but here we just simply write those to a file as they come to this stream
+  try:
+    with open(os.getenv("MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH"), "a", encoding="utf-8") as other_messages_file:
+      # we check if we got a single string message and write to file
+      if last_message["miscellaneous"].isinstance("str"):
+        time_recorded = datetime.now()
+        other_messages_file.write(f"{time_recorded} - {last_message['miscellaneous']}")
+        return {
+          "messages": [
+            {"role": "ai", "content": json.dumps({"succes": f"miscellaneous message written successfully to file {os.getenv('MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH')}"})}
+          ]
+        }
+      # otherwise we receive a list and loop over to have all written line by line
+      count = 1
+      for message in last_message["miscellaneous"]:
+        time_recorded = datetime.now()
+        other_messages_file.write(f"{count}/{len(last_message['miscellaneous'])}: {time_recorded}: {last_message['miscellaneous']}")
+        count += 1
+      return {
+        "messages": [
+          {"role": "ai", "content": json.dumps({"succes": f"{count}/{len(last_message['miscellaneous'])}: miscellaneous message written successfully to file {os.getenv('MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH')}"})}
+        ]
+      }
+  except Exception as e:
+    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while trying to write miscellaneous messages to file: {e}"})}]}
 
 # LAST NODE
 def last_report_agent(state: MessagesState):
   messages = state["messages"]
-  last_message = messages[-1].content
+  last_message = json.loads(messages[-1].content)
   return {"messages": [{"role": "ai", "content": json.dumps({"success": f"{last_message}"})}]}
 
 # ERROR NODE
@@ -301,7 +504,12 @@ workflow.add_node("tool_order_message_items_parser_agent", tool_order_message_it
 workflow.add_node("order_message_items_parser_tool_node", order_message_items_parser_tool_node)
 workflow.add_node("evalutor_enquiry_or_miscellaneous_message_agent", evalutor_enquiry_or_miscellaneous_message_agent)
 workflow.add_node("score_test_message_relevance_agent", score_test_message_relevance_agent)
-workflow.add_node("send_order_to_discord_and_save_to_bucket", send_order_to_discord_and_save_to_bucket)
+workflow.add_node("send_order_to_discord_agent", send_order_to_discord_agent)
+workflow.add_node("record_message_to_order_bucket_agent", record_message_to_order_bucket_agent)
+workflow.add_node("record_message_to_enquiry_discord_room_agent", record_message_to_enquiry_discord_room_agent)
+workflow.add_node("record_message_to_enquiry_bucket_agent", record_message_to_enquiry_bucket_agent)
+workflow.add_node("record_message_to_miscellaneous_discord_room_agent", record_message_to_miscellaneous_discord_room_agent)
+workflow.add_node("write_miscellaneous_message_to_file_agent", write_miscellaneous_message_to_file_agent)
 workflow.add_node("last_report_agent", last_report_agent)
 workflow.add_node("error_handler", error_handler)
 
@@ -322,13 +530,30 @@ workflow.add_conditional_edges(
   relevance_test_passed_or_not
 )
 workflow.add_conditional_edges(
-  "send_order_to_discord_and_save_to_bucket",
-  message_send_to_discord_success_or_not
+  "send_order_to_discord_agent",
+  order_message_send_to_discord_success_or_not
 )
-workflow.add_edge(
+workflow.add_conditional_edges(
+  "record_message_to_order_bucket_agent",
+  order_recorded_to_bucket_or_not
+)
+workflow.add_conditional_edges(
   "evalutor_enquiry_or_miscellaneous_message_agent",
   evaluator_success_or_error
 )
+workflow.add_conditional_edges(
+  "record_message_to_enquiry_discord_room_agent", 
+  enquiry_message_send_to_discord_success_or_not
+)
+workflow.add_conditional_edges(
+  "record_message_to_enquiry_bucket_agent",
+  enquiry_recorded_to_bucket_or_not
+)
+workflow.add_conditional_edges(
+  "record_message_to_miscellaneous_discord_room_agent",
+  miscellaneous_message_send_to_discord_success_or_not
+)
+workflow.add_edge("write_miscellaneous_message_to_file_agent", "last_report_agent")
 # end
 workflow.add_edge("last_report_agent", END)
 workflow.add_edge("error_handler", END)

@@ -23,7 +23,7 @@ def send_file_to_discord(message: str, classification: str, category_room_webhoo
 
     if response.status_code == 200:
       print(f"message sent successfully.")
-      return "success"
+      return f"{message}"
     else:
       print(f"Failed to send message. HTTP Status Code: {response.status_code}")
       print(response.content)

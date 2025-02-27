@@ -451,3 +451,9 @@ We are not going to push it but could have `Rust` actually handling those proces
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 state["messages"].append(AIMessage(content=json.dumps({"other": last_message})))
 ```
+
+- **solution**: as conditional edges need more code state logic and custom state to be reused as langgraph state `MessagesState` doesn't update `append()` or `update()` nto working
+                it keeps the state updated only in the context of the conditional edge. after that the next node is not having access to those. This is due to the behavior
+                of conditional edge which returns a node name and not a state update. I tried using generator and yield with a helper function but also not working
+                or maybe need to build there an intermediary node. So didn't bother, just used env vars to set state and update..
+

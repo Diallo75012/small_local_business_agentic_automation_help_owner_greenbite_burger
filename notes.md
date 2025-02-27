@@ -430,6 +430,7 @@ def <Your_Tool_Function>(<Your_Arguments>, state: MessagesState):
 ```
 
 # Next
+- [] keep running and debugging for all routes (genuine order route done), enquiry and miscellameous to be still debugged
 - [] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
      so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
 
@@ -439,3 +440,14 @@ We just need in the application logic to have a listener which starts the agenti
 using `USER_INITIAL_QUERY` that is sent updating env var and the agent will start like that. So the app will loop over the new rows and start the agentic flow.
 We might need to use subprocesses so that it can run concurrently if more messages are fetched.
 We are not going to push it but could have `Rust` actually handling those processor in order to improve performances (speed) of messages analysis. (`maturin`, `PyO3` and brothers....)
+
+
+# error in updating states inside a function
+- we can't update adding a dictionary but need to update using `.append()` in place and then use langchain messages
+  as it expects those kinds`AIMessage`, `HumanMessage`, `SystemMessage`, `ToolMessage`
+
+```python
+# eg.:
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+state["messages"].append(AIMessage(content=json.dumps({"other": last_message})))
+```

@@ -31,6 +31,7 @@ from helpers import (
   safe_json_dumps,
   similarity_search_checker,
   send_discord_notification_to_target_room,
+  yield_generator_state_update,
 )
 # database
 from postgresql_tables_creations import (
@@ -89,15 +90,18 @@ def message_interpreter_order_or_other_agent(state: MessagesState):
     decision = call_llm.call_llm(query, message_interpreter_order_or_other_prompt["system"]["template"], message_interpreter_order_or_other_schema)
     print("decision: ", decision, type(decision))
     if decision["order"].lower() == "true":
-      # update state message
-      state["messages"] + [{"role": "ai", "content": json.dumps({"order": last_message})}]
+      # for order no need to update state or set env var has it is going to get the message as str for evaluation directly
       return "tool_order_message_items_parser_agent"
-    # update state message
-    state["messages"] + [{"role": "ai", "content": json.dumps({"other": last_message})}]
+    # can't update state from conditional edge so use env var
+    set_key(".vars.env", "STATE_UPDATE_OTHER", json.dumps({"other": last_message}))
+    load_dotenv(dotenv_path=".vars.env", override=True)
     return "evalutor_enquiry_or_miscellaneous_message_agent"
   except Exception as e:
     # update state message
-    state["messages"] + [{"role": "ai", "content": json.dumps({"error": f"An exception occured while trying to interpret if message is a genuine order or another type of message: {e}"})}]
+    print(f"Exception: {e}")
+    # this won't update state example: it is a conditional edge need to use env vars so we set an env var for that
+    # state["messages"] + [{"role": "ai", "content": json.dumps({"error": f"An exception occured while trying to interpret if message is a genuine order or another type of message: {e}"})}]
+    set_key(".vars.env", "ORDER_OR_OTHER_EXCEPTION", json.dumps({"error": f"An exception occured while trying to interpret if message is a genuine order or another type of message: {e}"}))
     return "error_handler"
 
 # NODE
@@ -262,56 +266,68 @@ def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
     at this time we need to check if key `not_genuine_order_or_missing_something` exist in the `last_message`
   '''
   messages = state['messages']
-  last_message = json.loads(messages[-1].content)
+  print(f"'evalutor_enquiry_or_miscellaneous_message_agent': {state['messages']}")
+  # just check if if `json.loadable` as this node gets messages coming from different flows
+  # if it is not `json.laodable` the logic keeps going and the code will capture the other variable set as 'other_message' and make the `last_message` fail 
+  try:
+    last_message = json.loads(messages[-1].content)
+  except Exception:
+    last_message = messages[-1].content
+
+  other_message = json.loads(os.getenv("STATE_UPDATE_OTHER"))
+  print(f"Last message 'evalutor_enquiry_or_miscellaneous_message_agent': ", last_message, type(last_message))
   enquiries_final_bucket = []
   miscellaneous_final_bucket = []
 
-  try:
-    # check if the key exist and do the processing otherwise just do processing of the `last_message` directly as it is already `json.loads()`
-    # `last_message["not_genuine_order_or_missing_something"]` is type `List`
-    if last_message["not_genuine_order_or_missing_something"]:
+  if type(last_message) != str:
+    try:
+      # check if the key exist and do the processing otherwise just do processing of the `last_message` directly as it is already `json.loads()`
+      # `last_message["not_genuine_order_or_missing_something"]` is type `List`
+      if last_message["not_genuine_order_or_missing_something"]:
 
-      # we evalute the message
-      for message in last_message["not_genuine_order_or_missing_something"]:
+        # we evalute the message
+        for message in last_message["not_genuine_order_or_missing_something"]:
 
-        query = prompt_creation.prompt_creation(evalutor_enquiry_or_miscellaneous_message_prompt["human"], message=message)
+          query = prompt_creation.prompt_creation(evalutor_enquiry_or_miscellaneous_message_prompt["human"], message=message)
+          print("query: ",query)
+          decision = call_llm.call_llm(query, evalutor_enquiry_or_miscellaneous_message_prompt["system"]["template"], evalutor_enquiry_or_miscellaneous_message_schema)
+          print("decision: ", decision, type(decision))
+
+          if decision["enquiry"].lower() == "true":
+            # append the right bucket
+            enquiries_final_bucket.append(message)
+          if decision["miscellaneous"].lower() == "true":
+            # append the right bucket
+            miscellaneous_final_bucket.append(message)
+
+        # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellaneous`
+        return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from similarity test faillure successfully classified.", "enquiries_final_bucket": enquiries_final_bucket, "miscellaneous_final_bucket": miscellaneous_final_bucket})}]}
+    except Exception as e:
+      # going to next step with the error message (next node will check message [-1] and go `error_handler`)
+      return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occured while trying to evalute message if enquiry or miscellaneous: {e}"})}]}
+    
+  elif other_message:
+    try:
+      print(f"Last message type is {type(last_message)} therefore here will be evaluated `other_message`: {other_message} | Different Route!")
+      if other_message["other"]:
+        print("Other == True: in 'evalutor_enquiry_or_miscellaneous_message_agent'")
+        # we evaluate the message
+        query = prompt_creation.prompt_creation(evalutor_enquiry_or_miscellaneous_message_prompt["human"], message=last_message["other"])
         print("query: ",query)
         decision = call_llm.call_llm(query, evalutor_enquiry_or_miscellaneous_message_prompt["system"]["template"], evalutor_enquiry_or_miscellaneous_message_schema)
         print("decision: ", decision, type(decision))
-
-        if decision["enquiry"].lower() == "true":
-          # append the right bucket
-          enquiries_final_bucket.append(message)
-        if decision["miscellaneous"].lower() == "true":
-          # append the right bucket
-          miscellaneous_final_bucket.append(message)
-
-      # update state before going to next conditional edge with the result of the evaluation `enquiry` or `miscellaneous` (next node will check message [-1] and get [-2])
-      state["messages"] + [{"role": "ai", "content": json.dumps({"enquiries_final_bucket": enquiries_final_bucket, "miscellaneous_final_bucket": miscellaneous_final_bucket})}]
-      return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from similarity test faillure successfully classified."})}]}
-    
-    elif last_message["other"]:
-      # we evaluate the message
-      query = prompt_creation.prompt_creation(evalutor_enquiry_or_miscellaneous_message_prompt["human"], message=last_message["other"])
-      print("query: ",query)
-      decision = call_llm.call_llm(query, evalutor_enquiry_or_miscellaneous_message_prompt["system"]["template"], evalutor_enquiry_or_miscellaneous_message_schema)
-      print("decision: ", decision, type(decision))
       
-      if decision["enquiry"].lower() == "true":
-        # update state (next node will check message [-1] and get [-2])
-        state["messages"] + [{"role": "ai", "content": json.dumps({"enquiry": last_message["other"]})}]
-      if decision["miscellaneous"].lower() == "true":
-        # append state (next node will check message [-1] and get [-2])
-        state["messages"] + [{"role": "ai", "content": json.dumps({"miscellaneous": last_message["other"]})}]
-    
-      return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from initial evaluator successfully classified."})}]}
-    
-    # going to next step (next node will check message [-1] and go `error_handler`)
-    return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An error occurred while trying to evaluate message if enquiry or miscellaneous. Last message missed keys: `not_genuine_order_or_missing_something` or `other`"})}]}
-  
-  except Exception as e:
-    # going to next step with the error message (next node will check message [-1] and go `error_handler`)
-    return {"messages": [{"role": "ai", "content": json.dumps({"error": "An exception occured while trying to evalute message if enquiry or miscellaneous: {e}"})}]}
+        if decision["enquiry"].lower() == "true":
+          return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from initial evaluator successfully classified.", "enquiry": other_message["other"]})}]}
+        if decision["miscellaneous"].lower() == "true":
+          return {"messages": [{"role": "ai", "content": json.dumps({"success": "message coming from initial evaluator successfully classified.", "miscellaneous": other_message["other"]})}]}
+
+      # going to next step (next node will check message [-1] and go `error_handler`)
+      return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An error occurred while trying to evaluate message if enquiry or miscellaneous. Last message missed keys: `not_genuine_order_or_missing_something` or `other`"})}]}
+
+    except Exception as e:
+      # going to next step with the error message (next node will check message [-1] and go `error_handler`)
+      return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occured while trying to evalute other_message if enquiry or miscellaneous: {e}"})}]}
 
 # CONDITIONAL EDGE
 def evaluator_success_or_error(state: MessagesState):
@@ -321,15 +337,14 @@ def evaluator_success_or_error(state: MessagesState):
   '''
   messages = state["messages"]
   last_message = json.loads(messages[-1].content)
-  previous_state_message_updated = json.loads(messages[-2].content)
   
   # we check if it successfull and check the updated message to know where we are going to send the message
   if "success" in last_message:
     # will check if those keys exists
-    if "enquiry" or "enquiries_final_bucket" in previous_state_message_updated:
+    if "enquiry" or "enquiries_final_bucket" in last_message:
       return "record_message_to_enquiry_discord_room_agent"
-    elif "miscellaneous" or "miscellaneous_final_bucket" in previous_state_message_updated:
-      return "record_message_to_miscellaneous_discord_room_agent"  # need to do this function and other logic for node recording to bucket
+    elif "miscellaneous" or "miscellaneous_final_bucket" in last_message:
+      return "record_message_to_miscellaneous_discord_room_agent"
   # otherwise just send to error node
   return "error_handler"
 
@@ -517,9 +532,21 @@ def last_report_agent(state: MessagesState):
 
 # ERROR NODE
 def error_handler(state: MessagesState):
-  messages = state["messages"]
-  last_message = messages[-1].content
-  return {"messages": [{"role": "ai", "content": json.dumps({"error":last_message})}]}
+  try:
+    # or special error as from conditional edge impossible to update graph states
+    exception_order_or_other_check = json.loads(os.getenv("ORDER_OR_OTHER_EXCEPTION"))
+    if exception_order_or_other_check:
+      return {"messages": [{"role": "ai", "content": json.dumps({"error":exception_order_or_other_check})}]}
+    else:
+      # OR normal graph error
+      messages = state["messages"]
+      last_message = messages[-1].content
+      return {"messages": [{"role": "ai", "content": json.dumps({"error":last_message})}]}
+  except Exception as e:
+    # if can't parse json for example frome nv var as it doesn't exist or other error we just return normal graph error
+    messages = state["messages"]
+    last_message = messages[-1].content
+    return {"messages": [{"role": "ai", "content": json.dumps({"error":last_message})}]}
 
 ###############################
 ###  GRAPH NODES AND EDGES  ###

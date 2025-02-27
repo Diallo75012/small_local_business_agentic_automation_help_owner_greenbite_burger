@@ -16,7 +16,7 @@ order_message_items_parser_schema={
 }
 
 
-evalutor_enquiry_or_miscellaneous_message_schema={
+evaluator_enquiry_or_miscellaneous_message_schema={
   "enquiry": "answer 'true' if it is an enquiry otherwise 'false'. make sure it is valid JSON str.",
   "miscellaneous": "answer 'true' if it is not a miscellaneous otherwise 'false'. make sure it is valid JSON str."  
 }

@@ -17,11 +17,13 @@ from tools.tools import (
 # structured output
 from structured_output.structured_output import (
   message_interpreter_order_or_other_schema,
+  evaluator_enquiry_or_miscellaneous_message_schema,
 )
 # prompts
 from prompts.prompts import (
   message_interpreter_order_or_other_prompt,
   order_message_items_parser_prompt,
+  evaluator_enquiry_or_miscellaneous_message_prompt,
 )
 # helpers
 from helpers import (
@@ -195,7 +197,7 @@ def send_order_to_discord_agent(state: MessagesState):
     for order in genuine_order:
       if isinstance(order, list):
         print("genuine order list")
-        send_discord_notification_to_target_room.send_file_to_discord(order[0], "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
+        send_discord_notification_to_target_room.send_file_to_discord(f"{order[1]}x {order[0]}", "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
       elif isinstance(order, str):
         print("genuine order str")
         send_discord_notification_to_target_room.send_file_to_discord(order, "Order", os.getenv("ORDERS_DISCORD_ROOM_WEBHOOK_URL"))
@@ -234,7 +236,7 @@ def record_message_to_order_bucket_agent(state: MessagesState):
           # we check that it is is real order, no real order can have less than 10 characters
           if len(order[0]) > 10:
             # now lets store to database:
-            order = Orders(date=f"{datetime.now()}", message=order[0])
+            order = Orders(date=f"{datetime.now()}", message=f"{order[1]}x {order[0]}")
             db.session.add(order)
             db.session.commit()
         elif isinstance(order, str):
@@ -288,9 +290,9 @@ def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
         # we evalute the message
         for message in last_message["not_genuine_order_or_missing_something"]:
 
-          query = prompt_creation.prompt_creation(evalutor_enquiry_or_miscellaneous_message_prompt["human"], message=message)
+          query = prompt_creation.prompt_creation(evaluator_enquiry_or_miscellaneous_message_prompt["human"], message=message)
           print("query: ",query)
-          decision = call_llm.call_llm(query, evalutor_enquiry_or_miscellaneous_message_prompt["system"]["template"], evalutor_enquiry_or_miscellaneous_message_schema)
+          decision = call_llm.call_llm(query, evaluator_enquiry_or_miscellaneous_message_prompt["system"]["template"], evaluator_enquiry_or_miscellaneous_message_schema)
           print("decision: ", decision, type(decision))
 
           if decision["enquiry"].lower() == "true":
@@ -312,9 +314,9 @@ def evalutor_enquiry_or_miscellaneous_message_agent(state: MessagesState):
       if other_message["other"]:
         print("Other == True: in 'evalutor_enquiry_or_miscellaneous_message_agent'")
         # we evaluate the message
-        query = prompt_creation.prompt_creation(evalutor_enquiry_or_miscellaneous_message_prompt["human"], message=last_message["other"])
+        query = prompt_creation.prompt_creation(evaluator_enquiry_or_miscellaneous_message_prompt["human"], message=other_message["other"])
         print("query: ",query)
-        decision = call_llm.call_llm(query, evalutor_enquiry_or_miscellaneous_message_prompt["system"]["template"], evalutor_enquiry_or_miscellaneous_message_schema)
+        decision = call_llm.call_llm(query, evaluator_enquiry_or_miscellaneous_message_prompt["system"]["template"], evaluator_enquiry_or_miscellaneous_message_schema)
         print("decision: ", decision, type(decision))
       
         if decision["enquiry"].lower() == "true":
@@ -337,14 +339,18 @@ def evaluator_success_or_error(state: MessagesState):
   '''
   messages = state["messages"]
   last_message = json.loads(messages[-1].content)
+  print("Last Message , enquiry or miscellaneous classified: ", last_message, type(last_message))
   
   # we check if it successfull and check the updated message to know where we are going to send the message
   if "success" in last_message:
     # will check if those keys exists
-    if "enquiry" or "enquiries_final_bucket" in last_message:
-      return "record_message_to_enquiry_discord_room_agent"
-    elif "miscellaneous" or "miscellaneous_final_bucket" in last_message:
-      return "record_message_to_miscellaneous_discord_room_agent"
+    for k, v in last_message.items():
+      if k == "enquiry" or k == "enquiries_final_bucket":
+        print("enquiry route choosen")
+        return "record_message_to_enquiry_discord_room_agent"
+      elif k == "miscellaneous" or k == "miscellaneous_final_bucket":
+        print("miscellaneous route choosen")
+        return "record_message_to_miscellaneous_discord_room_agent"
   # otherwise just send to error node
   return "error_handler"
 
@@ -352,38 +358,38 @@ def evaluator_success_or_error(state: MessagesState):
 def record_message_to_enquiry_discord_room_agent(state: MessagesState):
   messages = state["messages"]
   # here we just catch the previous/previous node messages to get or one message or a list and send to discord depends where it is from
-  previous_state_message_updated = json.loads(messages[-2].content)
+  last_message = json.loads(messages[-1].content)
   count = 0
   # variabble set to check if we get a list for next node or a single enquiry treated as next node need to handle it differently
   success_list_enquiries_all_sent = False
   try:
     # check if it is a single message `enquiry` or a list `enquiries_final_bucket`. (checking dict keys)
-    if "enquiry" in previous_state_message_updated:
+    if "enquiry" in last_message:
       try:
         # send messages to discord in the enquiry room
-        single_enquiry_sent_to_discord = send_discord_notification_to_target_room.send_file_to_discord(previous_state_message_updated["enquiry"], "Enquiry", os.getenv("ENQUIRIES_DISCORD_ROOM_WEBHOOK_URL"))
-        print(f"Successfully sent message to enquiry discord room: {previous_state_message_updated['enquiry']}")
+        single_enquiry_sent_to_discord = send_discord_notification_to_target_room.send_file_to_discord(last_message["enquiry"], "Enquiry", os.getenv("ENQUIRIES_DISCORD_ROOM_WEBHOOK_URL"))
+        print(f"Successfully sent message to enquiry discord room: {last_message['enquiry']}")
         count += 1
       except Exception as e:
         print(f"Error sending enquiry message to discord: {e}")
         return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Enquiry message to Discord: {e}"})}]}
-    elif "enquiries_final_bucket" in previous_state_message_updated:
-      for enquiry_message in previous_state_message_updated["enquiries_final_bucket"]:
+    elif "enquiries_final_bucket" in last_message:
+      for enquiry_message in last_message["enquiries_final_bucket"]:
         try:
           # send messages to discord in the enquiry room
           send_discord_notification_to_target_room.send_file_to_discord(enquiry_message, "Enquiry", os.getenv("ENQUIRIES_DISCORD_ROOM_WEBHOOK_URL"))
           print(f"Successfully sent message to enquiry discord room: {enquiry_message}")
           count += 1
-          if count == len(previous_state_message_updated["enquiries_final_bucket"]):
+          if count == len(last_message["enquiries_final_bucket"]):
             success_list_enquiries_all_sent = True
         except Exception as e:
           print(f"Error sending enquiry message to discord: {e}")
           return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Enquiry message to Discord: {e}"})}]}
     # we send the list to next node with key `enquiries` (plural) to next node
     if success_list_enquiries_all_sent == True:
-      return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Enquiry message(s) successfully sent to discord", "enquiries": previous_state_message_updated["enquiries_final_bucket"]})}]}
+      return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Enquiry message(s) successfully sent to discord", "enquiries": last_message["enquiries_final_bucket"]})}]}
     # otherwise we sent single enquiry to next node with key `enquiry` (singular)
-    return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Enquiry message(s) successfully sent to discord", "enquiry": single_enquiry_sent_to_discord})}]}
+    return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Enquiry message(s) successfully sent to discord", "enquiry": last_message["enquiry"]})}]}
   except Exception as e:
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"Something went wrong. An exception occurred while sending Enquiry message to Discord: {e}"})}]}
 
@@ -445,39 +451,39 @@ def enquiry_recorded_to_bucket_or_not(state: MessagesState):
 def record_message_to_miscellaneous_discord_room_agent(state: MessagesState):
   messages = state["messages"]
   # here we just catch the previous/previous node messages to get or one message or a list and send to discord depends where it is from
-  previous_state_message_updated = json.loads(messages[-2].content)
+  last_message = json.loads(messages[-1].content)
   count = 0
   # variabble set to check if we get a list for next node or a single miscellaneous message treated as next node need to handle it differently
   success_list_miscellaneous_all_sent = False
   try:
     # check if it is a single message `miscellaneous` or a list `miscellaneous_final_bucket`. (checking dict keys)
-    if "miscellaneous" in previous_state_message_updated:
+    if "miscellaneous" in last_message:
       try:
         # send messages to discord in the miscellaneous room
         # this as success will return the message sent
-        single_miscellaneous_sent_to_discord = send_discord_notification_to_target_room.send_file_to_discord(previous_state_message_updated["miscellaneous"], "Miscellaneous", os.getenv("MISCELLANEOUS_DISCORD_ROOM_WEBHOOK_URL"))
-        print(f"Successfully sent message to miscellaneous discord room: {previous_state_message_updated['miscellaneous']}")
+        single_miscellaneous_sent_to_discord = send_discord_notification_to_target_room.send_file_to_discord(last_message["miscellaneous"], "Miscellaneous", os.getenv("MISCELLANEOUS_DISCORD_ROOM_WEBHOOK_URL"))
+        print(f"Successfully sent message to miscellaneous discord room: {last_message['miscellaneous']}")
         count += 1
       except Exception as e:
         print(f"Error sending miscellaneous message to discord: {e}")
         return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending miscellaneous message to Discord: {e}"})}]}
-    elif "miscellaneous_final_bucket" in previous_state_message_updated:
-      for miscellaneous_message in previous_state_message_updated["miscellaneous_final_bucket"]:
+    elif "miscellaneous_final_bucket" in last_message:
+      for miscellaneous_message in last_message["miscellaneous_final_bucket"]:
         try:
           # send messages to discord in the miscellaneous room
           send_discord_notification_to_target_room.send_file_to_discord(miscellaneous_message, "Miscellaneous", os.getenv("ENQUIRIES_DISCORD_ROOM_WEBHOOK_URL"))
           print(f"Successfully sent message to miscellaneous discord room: {miscellaneous_message}")
           count += 1
-          if count == len(previous_state_message_updated["miscellaneous_final_bucket"]):
+          if count == len(last_message["miscellaneous_final_bucket"]):
             success_list_miscellaneous_all_sent = True
         except Exception as e:
           print(f"Error sending miscellaneous message to discord: {e}")
           return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Miscellaneous message to Discord: {e}"})}]}
     # we send the list to next node with key `enquiries` (plural) to next node
     if success_list_miscellaneous_all_sent == True:
-      return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": previous_state_message_updated["miscellaneous_final_bucket"]})}]}
+      return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": last_message["miscellaneous_final_bucket"]})}]}
     # otherwise we sent single miscellaneous to next node with key `miscellaneous` (singular)
-    return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": single_miscellaneous_sent_to_discord})}]}
+    return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": last_message["miscellaneous"]})}]}
   except Exception as e:
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"Something went wrong. An exception occurred while sending Miscellaneous message to Discord: {e}"})}]}
 

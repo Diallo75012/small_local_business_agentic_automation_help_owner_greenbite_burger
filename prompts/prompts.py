@@ -58,7 +58,7 @@ order_message_items_parser_prompt = {
   },
 }
 
-evalutor_enquiry_or_miscellaneous_message_prompt = {
+evaluator_enquiry_or_miscellaneous_message_prompt = {
   "system": {
     "template":  """You are an expert in restaurant order request messages classification.\n
 
@@ -87,6 +87,7 @@ evalutor_enquiry_or_miscellaneous_message_prompt = {
 }
 
 
+# not used in this project just boiler plate example from previous project
 tool_notifier_agent_prompt = {
   "system": {
     "template": "", 

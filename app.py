@@ -109,7 +109,7 @@ def home():
         user_prompt = request.form['prompt']
         session_db = Session()
         user_id = session['user_id']
-        
+
         # Save user request
         new_request = Request(user_id=user_id, prompt=user_prompt)
         session_db.add(new_request)
@@ -121,7 +121,7 @@ def home():
         recipe_text = ""
         for chunk in response_stream:
             recipe_text += chunk.text
-        
+
         # Save Gemini response
         new_request.response = recipe_text
         session_db.commit()

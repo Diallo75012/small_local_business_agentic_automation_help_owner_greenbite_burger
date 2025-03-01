@@ -89,7 +89,24 @@ for index, row in df.iterrows():
 
 
 if __name__ == "__main__":
-  #import json
-  #load_dotenv()
+  from helpers.check_for_bucket_new_message import fetch_bucket_saved_new_message
+  while True:
+    new_rows = fetch_bucket_saved_new_message(os.getenv("LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER"))
+    time.sleep(30)
+
+    # here we check that there is new rows and start agentic flow using subprocesses
+    if new_rows:
+      for row in new_rows:
+        # set env var for user initial query to be the message
+        set_key("", "USER_INITIAL_QUERY", row[1])
+        load_dotenv(dotenv_path='.vars.env', override=True)
+        # then start the agent. we do it like that we this is to decouple later as here we set the env var and get it when we could just pass the message directly
+        '''
+        see if asyncio needs to be used
+        '''
+        user_query = os.getenv("USER_INITIAL_QUERY")
+        subprocess.run(['python3', order_automation_agent_team(user_query)])
+  '''
   user_query = os.getenv("USER_INITIAL_QUERY")
   print(order_automation_agent_team(user_query))
+  '''

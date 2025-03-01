@@ -33,7 +33,6 @@ from helpers import (
   safe_json_dumps,
   similarity_search_checker,
   send_discord_notification_to_target_room,
-  yield_generator_state_update,
 )
 # database
 from postgresql_tables_creations import (
@@ -387,9 +386,9 @@ def record_message_to_enquiry_discord_room_agent(state: MessagesState):
           return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Enquiry message to Discord: {e}"})}]}
     # we send the list to next node with key `enquiries` (plural) to next node
     if success_list_enquiries_all_sent == True:
-      return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Enquiry message(s) successfully sent to discord", "enquiries": last_message["enquiries_final_bucket"]})}]}
+      return {"messages": [{"role": "ai", "content": json.dumps({"success": f"x{count} Enquiry message(s) successfully sent to discord", "enquiries": last_message["enquiries_final_bucket"]})}]}
     # otherwise we sent single enquiry to next node with key `enquiry` (singular)
-    return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Enquiry message(s) successfully sent to discord", "enquiry": last_message["enquiry"]})}]}
+    return {"messages": [{"role": "ai", "content": json.dumps({"success": f"x{count} Enquiry message(s) successfully sent to discord", "enquiry": last_message["enquiry"]})}]}
   except Exception as e:
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"Something went wrong. An exception occurred while sending Enquiry message to Discord: {e}"})}]}
 
@@ -458,6 +457,7 @@ def record_message_to_miscellaneous_discord_room_agent(state: MessagesState):
   try:
     # check if it is a single message `miscellaneous` or a list `miscellaneous_final_bucket`. (checking dict keys)
     if "miscellaneous" in last_message:
+      print("one miscellaneous message route")
       try:
         # send messages to discord in the miscellaneous room
         # this as success will return the message sent
@@ -468,6 +468,7 @@ def record_message_to_miscellaneous_discord_room_agent(state: MessagesState):
         print(f"Error sending miscellaneous message to discord: {e}")
         return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending miscellaneous message to Discord: {e}"})}]}
     elif "miscellaneous_final_bucket" in last_message:
+      print("maybe several miscellaneous messages route")
       for miscellaneous_message in last_message["miscellaneous_final_bucket"]:
         try:
           # send messages to discord in the miscellaneous room
@@ -481,9 +482,9 @@ def record_message_to_miscellaneous_discord_room_agent(state: MessagesState):
           return {"messages": [{"role": "ai", "content": json.dumps({"error": f"An exception occurred while sending Miscellaneous message to Discord: {e}"})}]}
     # we send the list to next node with key `enquiries` (plural) to next node
     if success_list_miscellaneous_all_sent == True:
-      return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": last_message["miscellaneous_final_bucket"]})}]}
+      return {"messages": [{"role": "ai", "content": json.dumps({"success": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": last_message["miscellaneous_final_bucket"]})}]}
     # otherwise we sent single miscellaneous to next node with key `miscellaneous` (singular)
-    return {"messages": [{"role": "ai", "content": json.dumps({"succes": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": last_message["miscellaneous"]})}]}
+    return {"messages": [{"role": "ai", "content": json.dumps({"success": f"x{count} Miscellaneous message(s) successfully sent to discord", "miscellaneous": last_message["miscellaneous"]})}]}
   except Exception as e:
     return {"messages": [{"role": "ai", "content": json.dumps({"error": f"Something went wrong. An exception occurred while sending Miscellaneous message to Discord: {e}"})}]}
 
@@ -492,11 +493,13 @@ def record_message_to_miscellaneous_discord_room_agent(state: MessagesState):
 def miscellaneous_message_send_to_discord_success_or_not(state: MessagesState):
   messages = state['messages']
   last_message = json.loads(messages[-1].content)
-  
+  print("last_message in 'miscellaneous_message_send_to_discord_success_or_not': ", last_message, type(last_message))
   # check if `success` or `error`
   if "success" in last_message:
+    print("`success` in last_message: conditional edge: 'miscellaneous_message_send_to_discord_success_or_not'")
     return "write_miscellaneous_message_to_file_agent"
   # for anything else goes to error
+  print("success not catched in conditional edge so going to 'error_handler' node, 'last_message': ", last_message)
   return "error_handler"
 
 # NODE
@@ -513,7 +516,7 @@ def write_miscellaneous_message_to_file_agent(state: MessagesState):
         other_messages_file.write(f"{time_recorded} - {last_message['miscellaneous']}")
         return {
           "messages": [
-            {"role": "ai", "content": json.dumps({"succes": f"miscellaneous message written successfully to file {os.getenv('MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH')}"})}
+            {"role": "ai", "content": json.dumps({"success": f"miscellaneous message written successfully to file {os.getenv('MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH')}"})}
           ]
         }
       # otherwise we receive a list and loop over to have all written line by line
@@ -524,7 +527,7 @@ def write_miscellaneous_message_to_file_agent(state: MessagesState):
         count += 1
       return {
         "messages": [
-          {"role": "ai", "content": json.dumps({"succes": f"{count}/{len(last_message['miscellaneous'])}: miscellaneous message written successfully to file {os.getenv('MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH')}"})}
+          {"role": "ai", "content": json.dumps({"success": f"{count}/{len(last_message['miscellaneous'])}: miscellaneous message written successfully to file {os.getenv('MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH')}"})}
         ]
       }
   except Exception as e:

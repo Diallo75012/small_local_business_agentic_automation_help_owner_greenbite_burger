@@ -129,6 +129,51 @@ user_to_delete.delete()
 db.session.commit()
 ```
 
+- it is using sqlalchemy under the hood so we need to use `session()` to connect to `db` but we **can't use it like that** (just for documentation and learning)
+```python
+from sqlalchemy import text
+
+try:
+    query = f"""
+        SELECT * FROM {TABLE_NAME}
+        WHERE {COLUMN_ID} > :last_id
+        ORDER BY {COLUMN_ID} DESC;
+    """
+    
+    result = db.session.execute(text(query), {"last_id": last_processed_id})
+    rows = result.fetchall()
+    
+    print(rows)  # Print the results
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+- this is how to use it in our project:
+```python
+from your_model import USERS  # Import your table model
+
+# Fetch new rows based on the last processed ID
+last_id = get_last_processed_id()  # Read from .vars.env
+
+new_rows = USERS.query.filter(USERS.id > last_id).order_by(USERS.id.desc()).all()
+
+# Print new rows
+print(new_rows)
+```
+
+- extra documentation so that we have a reference compared to `django` for example:
+| Operation          | Django ORM                              | Flask-PGSQL (SQLAlchemy ORM)              |
+|--------------------|---------------------------------|----------------------------------|
+| Fetch all rows    | `User.objects.all()`             | `USERS.query.all()`             |
+| Fetch one by ID   | `User.objects.get(id=5)`        | `USERS.query.get(5)`            |
+| Filter rows       | `User.objects.filter(age__gt=30)` | `USERS.query.filter(USERS.age > 30).all()` |
+| Get first row     | `User.objects.first()`           | `USERS.query.first()`           |
+| Order by field    | `User.objects.order_by('-id')`   | `USERS.query.order_by(USERS.id.desc()).all()` |
+| Insert new row    | `User.objects.create(username="John")` | `db.session.add(USERS(username="John")); db.session.commit()` |
+| Update row        | `user = User.objects.get(id=5); user.age = 35; user.save()` | `user = USERS.query.get(5); user.age = 35; db.session.commit()` |
+| Delete row        | `user.delete()`                  | `db.session.delete(user); db.session.commit()` |
+
+
 # cleaning the dataset which had duplicates
 ```python
 # install pandas
@@ -430,7 +475,7 @@ def <Your_Tool_Function>(<Your_Arguments>, state: MessagesState):
 ```
 
 # Next
-- [] keep running and debugging for all routes (genuine order route done), enquiry and miscellameous to be still debugged
+- [x] keep running and debugging for all routes (genuine order route done), enquiry and miscellameous to be still debugged
 - [] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
      so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
 
@@ -456,4 +501,11 @@ state["messages"].append(AIMessage(content=json.dumps({"other": last_message})))
                 it keeps the state updated only in the context of the conditional edge. after that the next node is not having access to those. This is due to the behavior
                 of conditional edge which returns a node name and not a state update. I tried using generator and yield with a helper function but also not working
                 or maybe need to build there an intermediary node. So didn't bother, just used env vars to set state and update..
+
+
+# Next
+- [x] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
+     so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
+- [] finish to do the `subprocess` loop that will run messages as they arrive or fi those are a batch list , see if asyncio need to be used
+- [] create a node that would answer all questions from the enquiry database stored messages
 

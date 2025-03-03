@@ -823,3 +823,14 @@ Using generator in `Flask` side to be able to stream `results` as those arrive s
 - Cyberpunk UI Theme: Modern neon-glow design
 - JavaScript detects when Flask process finishes
 
+
+# issue with streaming flask to javascript frontend
+- opening the port access for streaming on server as it stops instantly
+```bash
+sudo ufw allow 5000/tcp
+```
+- check:
+```bash
+ss -tulnp | grep 5000
+tcp   LISTEN 0      128          0.0.0.0:5000       0.0.0.0:*    users:(("python3",pid=8700,fd=7),("python3",pid=8700,fd=6),("python3",pid=8684,fd=6))
+```

@@ -22,9 +22,20 @@ def stream_results():
     new_rows = fetch_bucket_saved_new_message(os.getenv("LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER"))
     time.sleep(30)
 
+    # ✅ Send heartbeat every 10 seconds to keep connection open
+    if time.time() - last_sent_time > 10:
+      yield "data: heartbeat\n\n"
+      sys.stdout.flush()
+      last_sent_time = time.time()
+            
+    if not new_rows:
+      # No new messages, continue loop
+      continue
+
     # here we check that there is new rows and start agentic flow using subprocesses
     if new_rows:
       for row in new_rows:
+        print(f"Analysis of this row in process: {row}")
         # catch errors
         try:
           # set env var for user initial query to be the message that will be fetched by the subprocess thread
@@ -34,6 +45,7 @@ def stream_results():
 
           # then start the agent. we do it like that we this is to decouple later as here we set the env var and get it when we could just pass the message directly
           user_query = os.getenv("USER_INITIAL_QUERY")
+          print("Message fetched: ", user_query)
 
           # command need to be in a list with the first argument being the executable (here `python3`)
           commands = ["python3", "agentic_process_run.py"]
@@ -51,15 +63,21 @@ def stream_results():
             # we don't need to let the agent run to end if there is an error
             # we catch it promptly and stop the flow to be able to fail fats troubleshoot and fix the error
             if "error" in result:
+              print(f"An error occurred while running the subprocess, agent result: {result}")
               raise Exception(f"An error occurred while running the subprocess, agent result: {result}")
             # use generator to keep sending live results to the frontend
+            print(f"data: {result}")
             yield f"data: {result}\n\n"
+            sys.stdout.flush()
 
         except Exception as e:
-          yield f"data: error: An exception occured while running subprocess agentic workflow {str(e)}\n\n" 
+          print(f"An exception occured while running subprocess agentic workflow: {e}")
+          yield f"data: error: An exception occured while running subprocess agentic workflow {str(e)}\n\n"
+          sys.stdout.flush()
 
     # Signal JavaScript that process is finished
     yield "data: done\n\n"
+    sys.stdout.flush()
     # Allow message to be received before closing
     time.sleep(1)
 
@@ -91,7 +109,7 @@ def greenbite_messages_automation():
 
 
 if __name__ == '__main__':
-  app.run(debug=True, host='0.0.0.0')
+  app.run(debug=True, threaded=True, host='0.0.0.0')
 
 
 '''

@@ -1,143 +1,122 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session
-from dotenv import load_dotenv
-import google.generativeai as genai
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import MetaData
-from sqlalchemy.sql import func
-from werkzeug.security import generate_password_hash, check_password_hash
-import re
+import json
+import time
+import random
+import pandas as pd
+import concurrent.futures
+import subprocess
+from typing import List
+from flask import Flask, render_template, request, jsonify, Response
+from helpers.check_for_bucket_new_message import fetch_bucket_saved_new_message
+from dotenv import load_dotenv, set_key
+
 
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "super_secret_key")
-gemini_api_key = os.getenv("GEMINI_API_KEY")
 
-# Configure Gemini
-genai.configure(api_key=gemini_api_key)
-model = genai.GenerativeModel('gemini-2.0-flash-exp')
+def stream_results():
 
-# Database Configuration
-Base = declarative_base(metadata=MetaData())
-engine = create_engine('sqlite:///miam_miam.db')
+  while True:
+    # this a list of new rows fetched from database
+    new_rows = fetch_bucket_saved_new_message(os.getenv("LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER"))
+    time.sleep(30)
 
-class User(Base):
-    __tablename__ = 'users'
-    id = Column(Integer, primary_key=True)
-    email = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # here we check that there is new rows and start agentic flow using subprocesses
+    if new_rows:
+      for row in new_rows:
+        # catch errors
+        try:
+          # set env var for user initial query to be the message that will be fetched by the subprocess thread
+          # in the special script to start agent which will get the message fromt he .vars.env file
+          set_key(".vars.env", "USER_INITIAL_QUERY", row[1])
+          load_dotenv(dotenv_path='.vars.env', override=True)
 
-class Request(Base):
-    __tablename__ = 'requests'
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer)
-    prompt = Column(String)
-    response = Column(String)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+          # then start the agent. we do it like that we this is to decouple later as here we set the env var and get it when we could just pass the message directly
+          user_query = os.getenv("USER_INITIAL_QUERY")
 
-Base.metadata.create_all(engine)
-Session = sessionmaker(bind=engine)
+          # command need to be in a list with the first argument being the executable (here `python3`)
+          commands = ["python3", "agentic_process_run.py"]
 
-# Prompts
-RECIPE_PROMPT = """
-You are a recipe generator.
-The user will provide a list of ingredients.
-You will generate a recipe using only those ingredients.
-Do not include any conversational text.
-Only provide the recipe.
-"""
+          # a little sleep moment so that the env var have time to update between messages
+          # as new agentic flow starts with new message (prevent running same message in two different agentic workflows)
+          time.sleep(0.5)
+        
+          # start the `subprocess` `ThreadPool` with max "3" workers executors for this tuto
+          with concurrent.futures.ThreadPoolExecutor(max_workers=int(os.getenv("WORKERS"))) as executor:
+            results = executor.map(run_command, [commands])
 
-IMAGE_PROMPT = """
-You are an image generator.
-The user will provide a recipe.
-You will generate a prompt for an image of the recipe.
-The image should look amazing and make people want to eat it.
-"""
+          # we return results as data is being processes
+          for result in results:
+            # we don't need to let the agent run to end if there is an error
+            # we catch it promptly and stop the flow to be able to fail fats troubleshoot and fix the error
+            if "error" in result:
+              raise Exception(f"An error occurred while running the subprocess, agent result: {result}")
+            # use generator to keep sending live results to the frontend
+            yield f"data: {result}\n\n"
 
-def validate_email(email):
-    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(email_regex, email)
+        except Exception as e:
+          yield f"data: error: An exception occured while running subprocess agentic workflow {str(e)}\n\n" 
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+    # Signal JavaScript that process is finished
+    yield "data: done\n\n"
+    # Allow message to be received before closing
+    time.sleep(1)
 
-        if not validate_email(email):
-            return render_template('register.html', error='Invalid email format')
+def run_command(cmd: List[str]):
+  proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+  try:
+    stdout, stderr = proc.communicate(timeout=int(os.getenv("PROCESS_TIMEOUT")))  # Ensure it doesn’t hang forever (5 mn)
+  except subprocess.TimeoutExpired:
+    proc.kill()  # Force stop if running too long
+    return "error: process timeout"
+    
+  if proc.returncode != 0:
+    return f"error: {stderr.strip()}"
+  return stdout.strip()
 
-        hashed_password = generate_password_hash(password)
-        session_db = Session()
-        new_user = User(email=email, password=hashed_password)
-        session_db.add(new_user)
-        session_db.commit()
-        session_db.close()
-        return redirect(url_for('login'))
-    return render_template('register.html')
+# route that will be listening to bucket new messages and start agentic process constantly
+@app.route('/greenbite-messages-automation', methods=['GET', 'POST'])
+def greenbite_messages_automation():
+  
+  # if user press the button the process starts
+  if request.method == "POST":
+    # SSE Stream
+    return Response(stream_results(), content_type="text/event-stream")
+    
+  # if we go to that route `url` we see the `UI` dahsboard
+  return render_template('greenbite_messages_automation.html')
+  
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        session_db = Session()
-        user = session_db.query(User).filter_by(email=email).first()
-        session_db.close()
-
-        if user and check_password_hash(user.password, password):
-            session['user_id'] = user.id
-            return redirect(url_for('home'))
-        return render_template('login.html', error='Invalid credentials')
-    return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    session.pop('user_id', None)
-    return redirect(url_for('login'))
-
-@app.route('/', methods=['GET', 'POST'])
-def home():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
-    if request.method == 'POST':
-        user_prompt = request.form['prompt']
-        session_db = Session()
-        user_id = session['user_id']
-
-        # Save user request
-        new_request = Request(user_id=user_id, prompt=user_prompt)
-        session_db.add(new_request)
-        session_db.commit()
-
-        # Gemini Recipe Generation
-        gemini_prompt = f"{RECIPE_PROMPT}\n{user_prompt}"
-        response_stream = model.generate_content(gemini_prompt, stream=True)
-        recipe_text = ""
-        for chunk in response_stream:
-            recipe_text += chunk.text
-
-        # Save Gemini response
-        new_request.response = recipe_text
-        session_db.commit()
-
-        # Gemini Image Generation
-        image_prompt = f"{IMAGE_PROMPT}\n{recipe_text}"
-        image_response = model.generate_content(image_prompt)
-
-        image_prompt_response = model.generate_content(image_prompt)
-        image_prompt_text = ""
-        for chunk in image_prompt_response:
-            image_prompt_text += chunk.text
-
-        session_db.close()
-        return render_template('home.html', recipe=recipe_text, image_prompt=image_prompt_text)
-    return render_template('home.html')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+  app.run(debug=True, host='0.0.0.0')
+
+
+'''
+# javascript side:
+// AJAX request to post message
+fetch('/clientchat/clientuserchat', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+  },
+  body: JSON.stringify(dataToSend),
+})
+.then(response => response.json())
+.then(data => {
+  // check what is inside data
+  console.log("data from ajax call received: ", data)    
+
+  // Append the bot response to the chat container
+  appendMessage(chatContainer, data.bot_message, 'bot');
+
+  // Scroll to the bottom after updating
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+})
+
+# http response to javascript
+return HttpResponse(json.dumps({'error': 'Chatbot name and description are required.'}), content_type="application/json", status=400)
+'''

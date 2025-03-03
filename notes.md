@@ -814,4 +814,12 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
   - one to start the simulation of fetching messages and storing to database
   - the other to start the bucket new message listener which will start agents if needed to
 
+# frontend feautres
+Using generator in `Flask` side to be able to stream `results` as those arrive so that frontend can update frontend and also catch when it is done to make the button `start` clickable again.
+
+- Live SSE Streaming: No need for polling, updates happen instantly
+- Auto-scroll to bottom: User can still scroll manually
+- Button is disabled while processing and re-enabled when done
+- Cyberpunk UI Theme: Modern neon-glow design
+- JavaScript detects when Flask process finishes
 

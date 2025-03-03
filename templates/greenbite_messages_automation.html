@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GreenBite Automation</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h1>GreenBite Burger (GBB)</h1>
+      <button id="start-processing">SAVE MY TIME PROCESSING MESSAGES</button>
+      <button id="scroll-top">Scroll to Top</button>
+      <button id="scroll-mid">Scroll to Middle</button>
+      <button id="scroll-bottom">Scroll to Bottom</button>
+    </div>
+    <div class="main-content">
+      <h2>Result Report</h2>
+      <div id="result-report" class="result-container"></div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

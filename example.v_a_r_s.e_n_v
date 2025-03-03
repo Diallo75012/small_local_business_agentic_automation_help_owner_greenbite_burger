@@ -1,0 +1,25 @@
+LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER='8'
+WORKERS='3'
+# 5mn process timeout
+PROCESS_TIMEOUT='300'
+MESSAGES_RECEIVED_CSV_FILE='dataset_cleaned.csv'
+MESSAGE_INDEX_TRACKER='0'
+SIMILARITY_THRESHOLD='0.7'
+START_TIME_SECONDS_RANGE='10.5'
+END_TIME_SECONDS_RANGE='20.5'
+MENU_CSV_FILE='menu.csv'
+TTL="2592000"
+MENU_ITEMS_TABLE_NAME='MenuItems'
+CACHE_KEYS='["the_mediterranean_burger", "grilled_veggie_&_hummus_wrap", "chicken_caesar_wrap", "turkey_avocado_flatbread", "kale_&_quinoa_super_salad", "mediterranean_chickpea_salad", "citrus_avocado_salad", "sweet_potato_fries", "kale_chips", "fresh_fruit_cup", "cold_brew_coffee", "freshly_squeezed_juices", "kombucha", "herbal_iced_tea", "fruit_parfait", "chia_pudding", "baked_cinnamon_apples", "the_mediterranean_burger", "grilled_veggie_&_hummus_wrap", "chicken_caesar_wrap", "turkey_avocado_flatbread", "kale_&_quinoa_super_salad", "mediterranean_chickpea_salad", "citrus_avocado_salad", "sweet_potato_fries", "kale_chips", "fresh_fruit_cup", "cold_brew_coffee", "freshly_squeezed_juices", "kombucha", "herbal_iced_tea", "fruit_parfait", "chia_pudding", "baked_cinnamon_apples"]'
+# order enquiry
+# USER_INITIAL_QUERY="hi there, where is my order of one Kale & Quinoa Super Salad please? I have been waiting for 4 hours now."
+# order
+# USER_INITIAL_QUERY="hi there, i would like to order one Kale & Quinoa Super Salad please"
+# miscellaneous
+# USER_INITIAL_QUERY="hi there, how is the weather in your city?"
+# offensive
+# USER_INITIAL_QUERY='hi there, i would like to order one Kale & Quinoa Super Salad please'
+THREAD_ID='33'
+MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH="./miscellaneous_messages_track_record/miscallaneous_messages_records.md"
+USER_INITIAL_QUERY='I have an enquiry about the oder number 23749, I need to add one more item, how can i proceed? do i need to reorder?'
+STATE_UPDATE_OTHER='{"other": "I have an enquiry about the oder number 23749, I need to add one more item, how can i proceed? do i need to reorder?"}'

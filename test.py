@@ -7,6 +7,9 @@ import time
 import random
 import pandas as pd
 from agents.order_automation_agent import order_automation_agent_team
+import concurrent.futures
+import subprocess
+from typing import List
 from dotenv import load_dotenv, set_key
 
 load_dotenv(dotenv_path='.vars.env', override=True)
@@ -86,26 +89,62 @@ for index, row in df.iterrows():
   db.session.commit()
   print(f"Data added to db: ", index, row.timestamp, row.message)
 '''
-
+def run_command(cmd: List[str]):
+  proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    
+  try:
+    stdout, stderr = proc.communicate(timeout=int(os.getenv("PROCESS_TIMEOUT")))  # Ensure it doesn’t hang forever (5 mn)
+  except subprocess.TimeoutExpired:
+    proc.kill()  # Force stop if running too long
+    return "error: process timeout"
+    
+  if proc.returncode != 0:
+    return f"error: {stderr.strip()}"
+  return stdout.strip()
 
 if __name__ == "__main__":
   from helpers.check_for_bucket_new_message import fetch_bucket_saved_new_message
   while True:
+    # this a list of new rows fetched from database
     new_rows = fetch_bucket_saved_new_message(os.getenv("LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER"))
     time.sleep(30)
 
     # here we check that there is new rows and start agentic flow using subprocesses
     if new_rows:
       for row in new_rows:
-        # set env var for user initial query to be the message
-        set_key("", "USER_INITIAL_QUERY", row[1])
-        load_dotenv(dotenv_path='.vars.env', override=True)
-        # then start the agent. we do it like that we this is to decouple later as here we set the env var and get it when we could just pass the message directly
-        '''
-        see if asyncio needs to be used
-        '''
-        user_query = os.getenv("USER_INITIAL_QUERY")
-        subprocess.run(['python3', order_automation_agent_team(user_query)])
+        # catch errors
+        try:
+          # set env var for user initial query to be the message that will be fetched by the subprocess thread
+          # in the special script to start agent which will get the message fromt he .vars.env file
+          set_key(".vars.env", "USER_INITIAL_QUERY", row[1])
+          load_dotenv(dotenv_path='.vars.env', override=True)
+
+          # then start the agent. we do it like that we this is to decouple later as here we set the env var and get it when we could just pass the message directly
+          user_query = os.getenv("USER_INITIAL_QUERY")
+
+          # command need to be in a list with the first argument being the executable (here `python3`)
+          commands = ["python3", "agentic_process_run.py"]
+
+          # a little sleep moment so that the env var have time to update between messages
+          # as new agentic flow starts with new message (prevent running same message in two different agentic workflows)
+          time.sleep(0.5)
+        
+          # start the `subprocess` `ThreadPool` with max "3" workers executors for this tuto
+          with concurrent.futures.ThreadPoolExecutor(max_workers=int(os.getenv("WORKERS"))) as executor:
+            results = executor.map(run_command, [commands])
+
+          # we return results as data is being processes
+          for result in results:
+            # we don't need to let the agent run to end if there is an error
+            # we catch it promptly and stop the flow to be able to fail fats troubleshoot and fix the error
+            if "error" in result:
+              raise Exception(f"An error occurred while running the subprocess, agent result: {result}")
+            # otherwise we keep printing the results
+            print("Result: ", result)
+
+        except Exception as e:
+          print({"exception": f"An exception occured while running subprocess agentic workflow: {e}"})
+
   '''
   user_query = os.getenv("USER_INITIAL_QUERY")
   print(order_automation_agent_team(user_query))

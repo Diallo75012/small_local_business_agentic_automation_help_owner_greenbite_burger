@@ -506,6 +506,312 @@ state["messages"].append(AIMessage(content=json.dumps({"other": last_message})))
 # Next
 - [x] have agent starting flow by tracking the incremental `dfidx` of the messages table and would save the last `dfidx` in the `,vars.env`
      so it has to `order desc` those ids and take whatever is more than that id. if empty it stops, it anay, it work on each row, one by one.
-- [] finish to do the `subprocess` loop that will run messages as they arrive or fi those are a batch list , see if asyncio need to be used
+- [x] finish to do the `subprocess` loop that will run messages as they arrive or if those are a batch list
 - [] create a node that would answer all questions from the enquiry database stored messages
+
+
+# Python **Subprocess** and **threading**
+
+## Python subprocess and Popen
+subprocess allows running external processes in Python.
+
+1. Running a Command (subprocess.run)
+```python
+import subprocess
+
+result = subprocess.run(["ls", "-l"], capture_output=True, text=True)
+print(result.stdout)  # Captures output
+print(result.stderr)  # Captures error
+```
+capture_output=True → Captures stdout & stderr
+text=True → Returns output as a string (instead of bytes)
+
+2. Using Popen for More Control
+
+- Popen starts a process asynchronously
+communicate() waits for completion and collects stdout & stderr
+
+```python
+proc = subprocess.Popen(["ping", "-c", "4", "google.com"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+stdout, stderr = proc.communicate()  # Waits for completion & gets output
+print(stdout)
+print(stderr)
+````
+
+- Reading Output in Real-time (Popen with iter)
+```python
+proc = subprocess.Popen(["ping", "-c", "4", "google.com"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+for line in iter(proc.stdout.readline, ''):  # Reads output line by line
+    print(line.strip())  
+iter(proc.stdout.readline, '') → Reads until the process exits
+```
+
+- Using threading for Parallel Execution
+```python
+import threading
+import subprocess
+
+def run_command(cmd):
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = proc.communicate()
+    print(stdout, stderr)
+
+thread = threading.Thread(target=run_command, args=(["ls", "-l"],))
+thread.start()
+thread.join()  # Wait for completion
+```
+Threads don’t run in parallel (Python GIL), but useful for I/O tasks.
+
+3.  Max Subprocesses & Threads
+
+- Subprocesses:
+Limited by OS & system resources
+Use `multiprocessing.cpu_count()` as a reference
+Too many can exhaust file descriptors (`ulimit -n` in Unix)
+- Threads:
+Python threads share GIL (not true parallel execution for CPU tasks)
+Safe for I/O-bound tasks (network, subprocess handling)
+Usually 100s to 1000s depending on the workload
+
+## Use ThreadPoolExecutor for threads and ProcessPoolExecutor for true parallelism with subprocesses. 
+
+1. Using ThreadPoolExecutor (For I/O-Bound Tasks)
+ThreadPoolExecutor is useful when you have many I/O-bound tasks like network requests, file I/O, or running subprocesses in parallel.
+
+```python
+import concurrent.futures
+import subprocess
+
+def run_command(cmd):
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = proc.communicate()
+    return stdout.strip()
+
+commands = [["ls", "-l"], ["whoami"], ["date"]]
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    results = executor.map(run_command, commands)
+
+for result in results:
+    print(result)
+```
+✅ Best for: Running multiple subprocesses without CPU-intensive work.
+⚠ Not parallel execution (due to Python GIL).
+
+2. Using ProcessPoolExecutor (For CPU-Bound Tasks)
+ProcessPoolExecutor is used when you need true parallelism for CPU-intensive work, such as data processing.
+
+```python
+import concurrent.futures
+import os
+
+def heavy_task(n):
+    print(f"Processing {n} in process {os.getpid()}")
+    return sum(i*i for i in range(n))  # CPU-bound computation
+
+numbers = [10**6, 10**7, 10**8]
+
+with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
+    results = executor.map(heavy_task, numbers)
+
+for result in results:
+    print(result)
+```
+✅ Best for: CPU-heavy computations (parallel execution using multiple cores).
+⚠ Avoid using for subprocess calls, since it spawns new processes, which is inefficient for I/O tasks.
+
+Key Differences
+Executor Type	|Used For	|Runs in True Parallel?	|Best For
+----------------+---------------+-----------------------+-------
+ThreadPoolExecutor	|I/O-bound tasks	|❌ (GIL restricts parallelism)	|Subprocesses, file I/O, networking
+------------------------+-----------------------+---------------------------------------+-------------------------
+ProcessPoolExecutor	|CPU-bound tasks	|✅ (uses multiple cores)	|Heavy computations, ML training
+------------------------+-----------------------+-------------------------------+------------------------------
+
+🔹 Use ThreadPoolExecutor for handling subprocesses efficiently.
+🔹 Use ProcessPoolExecutor for true CPU parallelism.
+
+
+## I/O-Bound Tasks (Best for ThreadPoolExecutor)
+✅ Tasks that wait for external resources rather than using CPU power.
+
+1 . Subprocess Execution
+```python
+def run_command(cmd):
+    subprocess.run(cmd, capture_output=True, text=True)
+```
+
+2. Web Scraping / API Requests
+```python
+import requests
+def fetch_url(url):
+    return requests.get(url).text
+```
+
+3. File I/O (Reading/Writing Large Files)
+```python
+def read_file(file_path):
+    with open(file_path, 'r') as f:
+        return f.read()
+```
+
+## CPU-Bound Tasks (Best for ProcessPoolExecutor)
+✅ Tasks that consume CPU cycles and need parallel execution.
+
+1. Mathematical Computations
+```python
+def compute_factorial(n):
+    return 1 if n == 0 else n * compute_factorial(n-1)
+```
+
+2. Image Processing
+```python
+from PIL import Image
+def resize_image(image_path):
+    img = Image.open(image_path)
+    img.resize((100, 100)).save("resized.jpg")
+```
+
+3. Data Encryption / Compression
+```python
+import hashlib
+def hash_data(data):
+    return hashlib.sha256(data.encode()).hexdigest()
+```
+
+📌 Rule of Thumb:
+
+- Use `ThreadPoolExecutor` for tasks that wait (network, file I/O, subprocess).
+- Use `ProcessPoolExecutor` for tasks that compute (math, image processing, hashing).
+
+# Decision for subprocess system to use
+As the task is I/O intensive we will use `ThreadPoolExecutor` to run the loop over the messages in the application and run different agentic flows to work on different messages.
+
+
+# Info about number of worker max (Nice Notes)
+
+Determining the Maximum Number of Workers in ThreadPoolExecutor for I/O Tasks Without Overloading the Server
+Since I/O-bound tasks (e.g., file I/O, API calls, subprocess execution) spend most of their time waiting, ThreadPoolExecutor can handle many more threads than CPU-bound tasks. However, to avoid overloading your server, you need a calculated approach to determine the max worker count.
+
+1. Use multiprocessing.cpu_count() as a Baseline
+Python’s default is min(32, os.cpu_count() + 4), but this is optimized for general workloads.
+Since I/O-bound tasks don’t use much CPU, you can start with:
+```python
+import multiprocessing
+
+max_workers = multiprocessing.cpu_count() * 5  # Example heuristic
+```
+This allows many threads without overloading CPU-bound processes.
+Adjust the multiplier (5 here) based on system performance.
+
+2. Consider Open File Limits (ulimit -n on Linux)
+Each thread may open files, sockets, or subprocesses. Check your system limit:
+
+```bash
+ulimit -n
+```
+
+If it’s 1024, you may need to limit threads to ≤ 500.
+If too many threads are created, you’ll hit Too many open files errors.
+👉 Set max_workers below `(ulimit -n) / 2` to stay safe.
+
+3. Monitor System Load (os.getloadavg())
+If your server is already under heavy load, too many workers will slow everything down.
+Get system load in Python:
+```python
+import os
+
+load_1m, load_5m, load_15m = os.getloadavg()
+cpu_cores = os.cpu_count()
+
+if load_1m > cpu_cores * 2:  # High load means reduce workers
+    max_workers = max(4, cpu_cores)
+else:
+    max_workers = cpu_cores * 5  # Adjust as needed
+```
+
+4. Use Adaptive Scaling with Active Process Count
+You can dynamically adjust workers based on how many active processes exist:
+
+```python
+import psutil
+
+def determine_max_workers():
+    total_procs = len(psutil.pids())  # Count active processes
+    cpu_cores = os.cpu_count()
+    
+    # Heuristic: Max workers = Free CPUs * 5, but ensure we don't exceed system limits
+    safe_workers = min(cpu_cores * 5, 100)  # Prevent excessive thread creation
+    
+    if total_procs > 300:  # If too many processes running, reduce worker count
+        return max(4, safe_workers // 2)
+    return safe_workers
+
+max_workers = determine_max_workers()
+```
+
+👉 Why psutil.pids()?
+
+It helps avoid creating too many workers if your server is already busy.
+You scale down when more system processes are running.
+
+Final Adaptive Approach
+```python
+import concurrent.futures
+import os
+import psutil
+
+def determine_max_workers():
+    cpu_cores = os.cpu_count()
+    # index for os,getloadavg(): `[0]` 1-minute load avg, `[1]` 5-minute load avg or `[2]` 15-minute load avg, it is % of 1 CPU-core, so if having x8 CPU-cores 8.0% mean full usage
+    system_load = os.getloadavg()[0] 
+    active_procs = len(psutil.pids())
+    
+    max_safe_workers = min(cpu_cores * 5, 100)  # Limit max threads
+    if system_load > cpu_cores * 2 or active_procs > 300:
+        return max(4, max_safe_workers // 2)  # Reduce workers under load
+    return max_safe_workers
+
+max_workers = determine_max_workers()
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    print(f"Running with {max_workers} workers")
+```
+Summary:
+- Factor		How It Affects Max Workers
+- `os.cpu_count()`	Base guideline, I/O tasks can use 5x CPU count
+- `ulimit -n`		If too low, limits thread count to avoid "Too many open files"
+- `os.getloadavg()`	If system load is high, reduce worker count
+- `psutil.pids()`	If many active processes exist, reduce worker count
+- Hard Limit		Never exceed 100 threads, even for heavy I/O
+
+**So we could use this to determine how many workers to use in our `ThreadPoolExecutor`**
+- using it this way with a helper function that checks our system on the fly
+```python
+import os
+import concurrent.futures
+
+cpu_cores = os.cpu_count()
+load_1m, load_5m, load_15m = os.getloadavg()
+
+# If system is underloaded, allow more workers
+if load_1m < cpu_cores:
+    max_workers = cpu_cores * 5
+else:
+    max_workers = cpu_cores  # Reduce workers if load is high
+
+print(f"Using {max_workers} workers (CPU Load: {load_1m})")
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    pass  # Run tasks here
+```
+
+
+# Next
+- [] create a node that would answer all questions from the enquiry database stored messages
+- [] incorporate to flask app routes with webui forms:
+  - one to start the simulation of fetching messages and storing to database
+  - the other to start the bucket new message listener which will start agents if needed to
+
 

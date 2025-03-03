@@ -1,0 +1,34 @@
+# POSTGRESQL
+POSTGRES_VERSION="17"
+DBNAME="restaurantdb"
+DBUSER="creditizens"
+DBPASSWORD="metaverse"
+DBHOST="localhost"
+DBPORT="5432"
+
+# Google GEMINI
+GEMINI_API_KEY=""
+
+#Groq
+GROQ_API_KEY=""
+MODEL_MIXTRAL_7B="mixtral-8x7b-32768"
+# use this one now instead of `...TOOL_USE` ones as those are deprecated
+MODEL_LLAMA3_3_70B_VERSATILE="llama-3.3-70b-versatile"
+MODEL_MIXTRAL_LARGER="mixtral-8x7b-32768"
+# OPENAI_API_BASE_GROQ="https://api.groq.com/openai/v1"
+GROQ_MAX_TOKEN=8192
+GROQ_TEMPERATURE=0.1
+GROQ_TEMPERATURE_CREATIVE=0.8
+
+# Openai API
+OPENAI_API_KEY=""
+OPENAI_MODEL_NAME="gpt-4o-mini"
+OPENAI_API_BASE="https://api.openai.com/v1/chat/completions"
+OPENAI_ORGANIZATION_ID=""
+OPENAI_PROJECT_ID=""
+
+
+# DISCORD
+ORDERS_DISCORD_ROOM_WEBHOOK_URL="https://discord.com/api/webhooks/.../..."
+ENQUIRIES_DISCORD_ROOM_WEBHOOK_URL="https://discord.com/api/webhooks/.../..."
+MISCELLANEOUS_DISCORD_ROOM_WEBHOOK_URL="https://discord.com/api/webhooks/.../..."

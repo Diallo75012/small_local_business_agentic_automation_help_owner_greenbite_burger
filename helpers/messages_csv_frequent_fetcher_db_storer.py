@@ -36,6 +36,10 @@ def fetch_messages_and_store(messages_received_csv_file: str = os.getenv("MESSAG
     # be careful indexes are type nympy.in64 so save those as str() to env var to avoid errors and use the `.vars.env` `MESSAGE_INDEX_TRACKER` to start fetching from there
     df = pd.read_csv(messages_received_csv_file)[message_index_tracker:]
 
+    # check if `df` has new messages otherwise just return to wait
+    if df.empty:
+      return "empty: no new messages yet..."
+
     # start looping over row and updating `.vars.env` index of last message treated
     for index, row in df.iterrows():
       if index > 0:
@@ -53,7 +57,7 @@ def fetch_messages_and_store(messages_received_csv_file: str = os.getenv("MESSAG
         set_key(".vars.env", "MESSAGE_INDEX_TRACKER", str(index))
         load_dotenv(dotenv_path='.vars.env', override=True)
         print("MESSAGE_INDEX_TRACKER: ", os.getenv("MESSAGE_INDEX_TRACKER"))
-    return f"{len(df) new messages have been added to the database. Last index was: {os.getenv(''MESSAGE_INDEX_TRACKER)]}"
+    return f"success: {len(df) new messages have been added to the database. Last index was: {os.getenv('MESSAGE_INDEX_TRACKER')]}"
 
   except Exception as e:
     return f"error: An error occured while trying to fetch messages and save those to database: {e}"

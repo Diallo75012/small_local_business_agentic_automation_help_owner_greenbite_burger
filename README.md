@@ -66,3 +66,44 @@ Validated orders are written to the Orders table, and a separate node sends a Di
 - agent file with the `nodes` and `edges` defined
 - side folders will hold decouples agent librairies like `tools`, `prompts`, `llms`, `structured_output`, `app_utils`
 - would be interesting to hava an tool using `aider` with its config on the side.. but not in the scope yet (`just good to have type`)
+
+# App Flow
+- Assumptions:
+  - orders are aggregated from different sources to a `.csv` file so this could be anything else (database for example) but this is our scenario here.
+  - in our scenario, we say that it is coming from `Whatsapp`, `SMS`
+
+- Flow:
+  - every random amount of time (we have set env vars for it to be modifiable easily)
+    there is a fetching process done from that `.csv` file which is simulating incoming messages. 
+    We use `Pandas` dataframe and save the last index as env var so that next fetching process will check if new messages exist from the aggregated messages file `.csv`.
+  - there is another process listening to the database changes every `n` amount of time in a regular basis and fetch the list of those messages and save to env var last id
+  - there is a loop running over the message fetched and run subprocess threads ina I/O fashion using `ThreadPoolExecutor`
+    so the `Python GIL` will make those not being processed parallely and use a set amount of workers using env var where those would be set before running the app.
+  - agent run details:
+    - messages to be considered as valid `order` would have to pass two step check
+    - messages which are considered mot `order` would be checked to see if those are in the group `enquiry` or `miscellaneous`
+    - `order` and `enquiry` will be saved to the database is separate tables. For, for example, run agent analysis on those or just data pipeline `ETL` or other
+    - `miscellanous` messages will be just saved to a file that could also be analyze later by seurity team
+       or agentic process to send warnings to users or ban those users if offensive messages.
+    - all messages groups are forwarded to their respective `Discord` categories.
+      after in discord permissions could be set to have different team members having access to their workload of incoming messages
+      for their dedicated rooms categrories for example.
+
+- benefits:
+  - GreenBite Burger (GBB) restaurant owenr doesn't need anymore to wake up at night and sort all this out or during the day.
+  - less stress,no need anymore to be exposed to those `miscellaneous` messages (offensive messages being part of those).
+  - Focusing ont he business.
+  - The work with `Discord` is easier to sort out between different teams.
+ 
+
+This code is an example of what would be done in the real life nd very minimalistic,
+for sure it is needed more safeguards but it is for sure opening the mind to additional features that could be plugged in easily.
+What are your ideas? Here you get a nice boilerplate that you can plug in with any LLM (Local Free, Blazing Fast API like Groq, Cerebras, Paid API if you want but it is not the idea here..)
+
+
+# Stay or Take Away from this repo:
+The Idea Here Is For A Free System Running Continously
+(Where maybe some more logging and system monitoring and improvement could be implemented but out of the subject of what this repo want to show)
+
+
+Hope That You Liked This Idea!

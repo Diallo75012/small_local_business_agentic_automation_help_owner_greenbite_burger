@@ -8,15 +8,18 @@ document.addEventListener("DOMContentLoaded", function () {
   let eventSource = null;
 
   button.addEventListener("click", function () {
+    // If the EventSource is already open, do nothing.
     if (eventSource) return;
 
     resultContainer.innerHTML = "<p>Processing started...</p>";
     button.disabled = true;
     button.classList.add("disabled");
 
-    eventSource = new EventSource("/greenbite-messages-automation");
+    // Make sure this route returns SSE on GET, not HTML
+    eventSource = new EventSource("/greenbite-messages-automation-stream");
 
     eventSource.onmessage = function (event) {
+      // If our Flask generator sends "data: done\n\n", we treat it as a completion signal
       if (event.data === "done") {
         eventSource.close();
         eventSource = null;
@@ -26,14 +29,23 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      if (event.data === "heartbeat") return;  // ✅ Ignore heartbeat messages
+      // If it’s just a “heartbeat,” ignore it
+      if (event.data === "heartbeat") {
+        return;
+      }
 
-      const newMessage = document.createElement("p");
-      newMessage.textContent = event.data;
-      resultContainer.appendChild(newMessage);
+
+      // Otherwise, append the data
+      const lines = event.data.split('\n');
+      for (const line of lines) {
+        const newMessage = document.createElement("p");
+        newMessage.textContent = line;
+        resultContainer.appendChild(newMessage);
+      }
       resultContainer.scrollTop = resultContainer.scrollHeight;
     };
 
+    // If there’s a connection error, close and retry after 5s
     eventSource.onerror = function () {
       eventSource.close();
       eventSource = null;
@@ -41,13 +53,20 @@ document.addEventListener("DOMContentLoaded", function () {
       button.classList.remove("disabled");
       resultContainer.innerHTML += "<p style='color:red;'>Connection lost. Retrying...</p>";
 
-      // Retry connection after 5s
       setTimeout(() => button.click(), 5000);
     };
   });
 
-  scrollTopBtn.addEventListener("click", () => resultContainer.scrollTop = 0);
-  scrollMidBtn.addEventListener("click", () => resultContainer.scrollTop = resultContainer.scrollHeight / 2);
-  scrollBottomBtn.addEventListener("click", () => resultContainer.scrollTop = resultContainer.scrollHeight);
+  scrollTopBtn.addEventListener("click", () => {
+    resultContainer.scrollTop = 0;
+  });
+
+  scrollMidBtn.addEventListener("click", () => {
+    resultContainer.scrollTop = resultContainer.scrollHeight / 2;
+  });
+
+  scrollBottomBtn.addEventListener("click", () => {
+    resultContainer.scrollTop = resultContainer.scrollHeight;
+  });
 });
 

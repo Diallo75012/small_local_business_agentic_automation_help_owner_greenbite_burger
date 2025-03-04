@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import time
 import random
@@ -16,7 +17,8 @@ load_dotenv()
 app = Flask(__name__)
 
 def stream_results():
-
+  last_sent_time = time.time()
+  
   while True:
     # this a list of new rows fetched from database
     new_rows = fetch_bucket_saved_new_message(os.getenv("LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER"))
@@ -95,18 +97,14 @@ def run_command(cmd: List[str]):
   return stdout.strip()
 
 # route that will be listening to bucket new messages and start agentic process constantly
-@app.route('/greenbite-messages-automation', methods=['GET', 'POST'])
-def greenbite_messages_automation():
-  
-  # if user press the button the process starts
-  if request.method == "POST":
-    # SSE Stream
-    return Response(stream_results(), content_type="text/event-stream")
-    
+@app.route('/greenbite-messages-automation', methods=['GET'])
+def greenbite_messages_automation():    
   # if we go to that route `url` we see the `UI` dahsboard
   return render_template('greenbite_messages_automation.html')
   
-
+@app.route('/greenbite-messages-automation-stream', methods=['GET'])
+def greenbite_messages_automation_stream():
+  return Response(stream_results(), content_type="text/event-stream")
 
 if __name__ == '__main__':
   app.run(debug=True, threaded=True, host='0.0.0.0')

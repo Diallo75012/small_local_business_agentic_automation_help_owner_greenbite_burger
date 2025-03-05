@@ -89,63 +89,166 @@ for index, row in df.iterrows():
   db.session.commit()
   print(f"Data added to db: ", index, row.timestamp, row.message)
 '''
-def run_command(cmd: List[str]):
-  proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    
-  try:
-    stdout, stderr = proc.communicate(timeout=int(os.getenv("PROCESS_TIMEOUT")))  # Ensure it doesn’t hang forever (5 mn)
-  except subprocess.TimeoutExpired:
-    proc.kill()  # Force stop if running too long
-    return "error: process timeout"
-    
-  if proc.returncode != 0:
-    return f"error: {stderr.strip()}"
-  return stdout.strip()
-
-if __name__ == "__main__":
-  from helpers.check_for_bucket_new_message import fetch_bucket_saved_new_message
-  while True:
-    # this a list of new rows fetched from database
-    new_rows = fetch_bucket_saved_new_message(os.getenv("LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER"))
-    time.sleep(30)
-
-    # here we check that there is new rows and start agentic flow using subprocesses
-    if new_rows:
-      for row in new_rows:
-        # catch errors
-        try:
-          # set env var for user initial query to be the message that will be fetched by the subprocess thread
-          # in the special script to start agent which will get the message fromt he .vars.env file
-          set_key(".vars.env", "USER_INITIAL_QUERY", row[1])
-          load_dotenv(dotenv_path='.vars.env', override=True)
-
-          # then start the agent. we do it like that we this is to decouple later as here we set the env var and get it when we could just pass the message directly
-          user_query = os.getenv("USER_INITIAL_QUERY")
-
-          # command need to be in a list with the first argument being the executable (here `python3`)
-          commands = ["python3", "agentic_process_run.py"]
-
-          # a little sleep moment so that the env var have time to update between messages
-          # as new agentic flow starts with new message (prevent running same message in two different agentic workflows)
-          time.sleep(0.5)
-        
-          # start the `subprocess` `ThreadPool` with max "3" workers executors for this tuto
-          with concurrent.futures.ThreadPoolExecutor(max_workers=int(os.getenv("WORKERS"))) as executor:
-            results = executor.map(run_command, [commands])
-
-          # we return results as data is being processes
-          for result in results:
-            # we don't need to let the agent run to end if there is an error
-            # we catch it promptly and stop the flow to be able to fail fats troubleshoot and fix the error
-            if "error" in result:
-              raise Exception(f"An error occurred while running the subprocess, agent result: {result}")
-            # otherwise we keep printing the results
-            print("Result: ", result)
-
-        except Exception as e:
-          print({"exception": f"An exception occured while running subprocess agentic workflow: {e}"})
-
-  '''
-  user_query = os.getenv("USER_INITIAL_QUERY")
-  print(order_automation_agent_team(user_query))
-  '''
+def data():
+  return """'''ORder Automation Agents AI Team Startooooooo !!!
+Query: 'hi there, i would like to order one Kale & Quinoa Super Salad please'
+formatted_template:  hi there, i would like to order one Kale & Quinoa Super Salad please
+query:  hi there, i would like to order one Kale & Quinoa Super Salad please
+calling llm
+Prompt before call structured output:  input_variables=['query', 'response_schema'] input_types={} partial_variables={} template='You are an expert in restaurant order request messages identification.\n\n\n    Your task:\n\n    - Identify if message is an order and not just an enquiry or miscellaneous message.\n\n    - Strictly adhere to the following schema for your response:\n\n    Schema:\n\n    {response_schema}\n\n\n    Important:\n\n    - Only return a JSON object based on the schema. Do not include any extra text, comments, or fields beyond the schema.\n\n    - Place your complete answer inside the correct field of the schema.\n\n    - Do not alter the schema structure.\n\n\n    User query: {query}'
+prompt_and_model:  first=PromptTemplate(input_variables=['query', 'response_schema'], input_types={}, partial_variables={}, template='You are an expert in restaurant order request messages identification.\n\n\n    Your task:\n\n    - Identify if message is an order and not just an enquiry or miscellaneous message.\n\n    - Strictly adhere to the following schema for your response:\n\n    Schema:\n\n    {response_schema}\n\n\n    Important:\n\n    - Only return a JSON object based on the schema. Do not include any extra text, comments, or fields beyond the schema.\n\n    - Place your complete answer inside the correct field of the schema.\n\n    - Do not alter the schema structure.\n\n\n    User query: {query}') middle=[] last=ChatGroq(client=<groq.resources.chat.completions.Completions object at 0x78b54894c500>, async_client=<groq.resources.chat.completions.AsyncCompletions object at 0x78b54894d640>, temperature=0.1, model_kwargs={}, groq_api_key=SecretStr('**********'), max_tokens=8192)
+RESPONSE:  {"order": "true", "other": "false"}
+ '```' not in response
+dictionary converted:  {'order': 'true', 'other': 'false'}
+Response content dict:  {'order': 'true', 'other': 'false'}
+decision:  {'order': 'true', 'other': 'false'} <class 'dict'>
+Step 1: {
+    "intergraph_agent": {
+        "messages": [
+            {
+                "role": "ai",
+                "content": "hi there, i would like to order one Kale & Quinoa Super Salad please"
+            }
+        ]
+    }
+}
+Last message received in tool_order_message_items_parser_agent:  hi there, i would like to order one Kale & Quinoa Super Salad please
+formatted_template:  Analyze user query: hi there, i would like to order one Kale & Quinoa Super Salad please. And choose the right tool that parses the different items from the order to have separate distinct names and quantities.
+QUERY:  Analyze user query: hi there, i would like to order one Kale & Quinoa Super Salad please. And choose the right tool that parses the different items from the order to have separate distinct names and quantities. <class 'str'>
+LLM with tool choice response:  content='' additional_kwargs={'tool_calls': [{'id': 'call_wfaa', 'function': {'arguments': '{}', 'name': 'order_message_items_parser'}, 'type': 'function'}]} response_metadata={'token_usage': {'completion_tokens': 11, 'prompt_tokens': 5055, 'total_tokens': 5066, 'completion_time': 0.04, 'prompt_time': 0.198864316, 'queue_time': 0.502176755, 'total_time': 0.238864316}, 'model_name': 'llama-3.3-70b-versatile', 'system_fingerprint': 'fp_76dc6cf67d', 'finish_reason': 'tool_calls', 'logprobs': None} id='run-6928b476-b373-4ee1-8c37-a18f539aca72-0' tool_calls=[{'name': 'order_message_items_parser', 'args': {}, 'id': 'call_wfaa', 'type': 'tool_call'}] usage_metadata={'input_tokens': 5055, 'output_tokens': 11, 'total_tokens': 5066} <class 'langchain_core.messages.ai.AIMessage'>
+reponse tool call:  [{'name': 'order_message_items_parser', 'args': {}, 'id': 'call_wfaa', 'type': 'tool_call'}] <class 'list'>
+Step 2: {
+    "tool_order_message_items_parser_agent": {
+        "messages": [
+            {
+                "content": "",
+                "additional_kwargs": {
+                    "tool_calls": [
+                        {
+                            "id": "call_wfaa",
+                            "function": {
+                                "arguments": "{}",
+                                "name": "order_message_items_parser"
+                            },
+                            "type": "function"
+                        }
+                    ]
+                },
+                "response_metadata": {
+                    "token_usage": {
+                        "completion_tokens": 11,
+                        "prompt_tokens": 5055,
+                        "total_tokens": 5066,
+                        "completion_time": 0.04,
+                        "prompt_time": 0.198864316,
+                        "queue_time": 0.502176755,
+                        "total_time": 0.238864316
+                    },
+                    "model_name": "llama-3.3-70b-versatile",
+                    "system_fingerprint": "fp_76dc6cf67d",
+                    "finish_reason": "tool_calls",
+                    "logprobs": null
+                },
+                "tool_calls": [
+                    {
+                        "name": "order_message_items_parser",
+                        "args": {},
+                        "id": "call_wfaa",
+                        "type": "tool_call"
+                    }
+                ],
+                "usage_metadata": {
+                    "input_tokens": 5055,
+                    "output_tokens": 11,
+                    "total_tokens": 5066
+                },
+                "id": "run-6928b476-b373-4ee1-8c37-a18f539aca72-0",
+                "role": null
+            }
+        ]
+    }
+}
+formatted_template:  hi there, i would like to order one Kale & Quinoa Super Salad please
+query:  hi there, i would like to order one Kale & Quinoa Super Salad please
+calling llm
+Prompt before call structured output:  input_variables=['query', 'response_schema'] input_types={} partial_variables={} template='You are an expert in restaurant order items parsing identifying their name and quantity ordered.\n\n\n    Your task:\n\n    - Identify how many items are in the order and their corresponding quantity. if no quantity indicated use 1 as default.\n\n    - Strictly adhere to the following schema for your response:\n\n    Schema:\n\n    {response_schema}\n\n    \n    Important:\n\n    - Only return a JSON object based on the schema. Do not include any extra text, comments, or fields beyond the schema.\n\n    - Place your complete answer inside the correct field of the schema.\n\n    - Do not alter the schema structure.\n\n\n    User query: {query}'
+prompt_and_model:  first=PromptTemplate(input_variables=['query', 'response_schema'], input_types={}, partial_variables={}, template='You are an expert in restaurant order items parsing identifying their name and quantity ordered.\n\n\n    Your task:\n\n    - Identify how many items are in the order and their corresponding quantity. if no quantity indicated use 1 as default.\n\n    - Strictly adhere to the following schema for your response:\n\n    Schema:\n\n    {response_schema}\n\n    \n    Important:\n\n    - Only return a JSON object based on the schema. Do not include any extra text, comments, or fields beyond the schema.\n\n    - Place your complete answer inside the correct field of the schema.\n\n    - Do not alter the schema structure.\n\n\n    User query: {query}') middle=[] last=ChatGroq(client=<groq.resources.chat.completions.Completions object at 0x78b54894c500>, async_client=<groq.resources.chat.completions.AsyncCompletions object at 0x78b54894d640>, temperature=0.1, model_kwargs={}, groq_api_key=SecretStr('**********'), max_tokens=8192)
+RESPONSE:  {
+  'item_names': ['Kale & Quinoa Super Salad'],
+  'item_quantities': [1],
+  'item_ids': [1]
+}
+ '```' not in response
+dictionary converted:  {'item_names': ['Kale & Quinoa Super Salad'], 'item_quantities': [1], 'item_ids': [1]}
+Response content dict:  {'item_names': ['Kale & Quinoa Super Salad'], 'item_quantities': [1], 'item_ids': [1]}
+parsed order items:  {'item_names': ['Kale & Quinoa Super Salad'], 'item_quantities': [1], 'item_ids': [1]} <class 'dict'>
+tool call item parser outcome:  {"messages": [{"role": "tool", "content": "{\"success\": {\"item_names\": [\"Kale & Quinoa Super Salad\"], \"item_quantities\": [1], \"item_ids\": [1]}}"}]} <class 'str'>
+Step 3: {
+    "order_message_items_parser_tool_node": {
+        "messages": [
+            {
+                "content": "{\"messages\": [{\"role\": \"tool\", \"content\": \"{\\\"success\\\": {\\\"item_names\\\": [\\\"Kale & Quinoa Super Salad\\\"], \\\"item_quantities\\\": [1], \\\"item_ids\\\": [1]}}\"}]}",
+                "additional_kwargs": {},
+                "response_metadata": {},
+                "tool_calls": null,
+                "usage_metadata": null,
+                "id": "de619f51-8a43-49f9-84e6-d9aae5aacae5",
+                "role": null
+            }
+        ]
+    }
+}
+1:  {'messages': [{'role': 'tool', 'content': '{"success": {"item_names": ["Kale & Quinoa Super Salad"], "item_quantities": [1], "item_ids": [1]}}'}]} <class 'dict'>
+['the mediterranean burger', 'grilled veggie & hummus wrap', 'chicken caesar wrap', 'turkey avocado flatbread', 'kale & quinoa super salad', 'mediterranean chickpea salad', 'citrus avocado salad', 'sweet potato fries', 'kale chips', 'fresh fruit cup', 'cold brew coffee', 'freshly squeezed juices', 'kombucha', 'herbal iced tea', 'fruit parfait', 'chia pudding', 'baked cinnamon apples', 'the mediterranean burger', 'grilled veggie & hummus wrap', 'chicken caesar wrap', 'turkey avocado flatbread', 'kale & quinoa super salad', 'mediterranean chickpea salad', 'citrus avocado salad', 'sweet potato fries', 'kale chips', 'fresh fruit cup', 'cold brew coffee', 'freshly squeezed juices', 'kombucha', 'herbal iced tea', 'fruit parfait', 'chia pudding', 'baked cinnamon apples', 'Kale & Quinoa Super Salad']
+max_similar:  0.9584131836891174
+idx: 4 - <class 'int'>
+similarities: 0.9584131836891174 - <class 'torch.Tensor'>
+menu_item_names: kale & quinoa super salad
+Similarity_test_result score type :  0.9584131836891174 <class 'float'>  - Threshold:  0.7
+Step 4: {
+    "score_test_message_relevance_agent": {
+        "messages": [
+            {
+                "role": "ai",
+                "content": "{\"genuine_order\": [[\"Kale & Quinoa Super Salad\", 1]], \"not_genuine_order_or_missing_something\": []}"
+            }
+        ]
+    }
+}
+Genuine_order:  [['Kale & Quinoa Super Salad', 1]] <class 'list'>
+genuine order list
+message sent successfully.
+Step 5: {
+    "send_order_to_discord_agent": {
+        "messages": [
+            {
+                "role": "ai",
+                "content": "{\"success\": \"Order message successfully sent to Discord.\"}"
+            }
+        ]
+    }
+}
+genuine order list
+Step 6: {
+    "record_message_to_order_bucket_agent": {
+        "messages": [
+            {
+                "role": "ai",
+                "content": "{\"success\": \"Order message successfully recorded to database\"}"
+            }
+        ]
+    }
+}
+Step 7: {
+    "last_report_agent": {
+        "messages": [
+            {
+                "role": "ai",
+                "content": "{\"success\": \"{'success': 'Order message successfully recorded to database'}\"}"
+            }
+        ]
+    }
+}
+'''
+"""
+print(data())

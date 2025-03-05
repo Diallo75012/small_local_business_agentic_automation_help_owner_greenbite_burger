@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", function () {
     eventSource = new EventSource("/greenbite-messages-automation-stream");
 
     eventSource.onmessage = function (event) {
+      // Note: `event.data` cleans up the prefix `data: ` that it requires for sending messages
       // If our Flask generator sends "data: done\n\n", we treat it as a completion signal
       if (event.data === "done") {
         eventSource.close();
@@ -35,13 +36,13 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
 
-      // Otherwise, append the data
-      const lines = event.data.split('\n');
-      for (const line of lines) {
-        const newMessage = document.createElement("p");
-        newMessage.textContent = line;
-        resultContainer.appendChild(newMessage);
-      }
+      // display in webui the agent response
+      const line = event.data;
+      console.log("Full Event: ", event)
+      const div = document.createElement("div");
+      div.textContent = line;
+      resultContainer.appendChild(div);
+     
       resultContainer.scrollTop = resultContainer.scrollHeight;
     };
 

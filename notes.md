@@ -811,8 +811,8 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
 # Next
 - [] create a node that would answer all questions from the enquiry database stored messages
 - [] incorporate to flask app routes with webui forms:
-  - one to start the simulation of fetching messages and storing to database
-  - the other to start the bucket new message listener which will start agents if needed to
+  - [] one to start the simulation of fetching messages and storing to database
+  - [x] the other to start the bucket new message listener which will start agents if needed to
 
 # frontend feautres
 Using generator in `Flask` side to be able to stream `results` as those arrive so that frontend can update frontend and also catch when it is done to make the button `start` clickable again.
@@ -834,3 +834,18 @@ sudo ufw allow 5000/tcp
 ss -tulnp | grep 5000
 tcp   LISTEN 0      128          0.0.0.0:5000       0.0.0.0:*    users:(("python3",pid=8700,fd=7),("python3",pid=8700,fd=6),("python3",pid=8684,fd=6))
 ```
+
+# issue with streaming messages from `flask` -> `javascript`
+Streaming works fine need to check the console and see what to change in app.js file in order to get the full returned response displayed:
+- browser console: show the full message in the request `response` tab of the network
+- I have console logged the `event` received by `javascript` in the cod ebut it shows only the first line
+- Webui only shows the first line as output: therefore, i need to fix the `event` received to have the full message
+
+I have been tweeking the `Javascript` code but the problem what more about how the result is `yield` from `flask`:
+- i sent the `result` using the mandatory SSE `data: <the result message>` but this on the other side (`javascript`) would only look for line having `data: `
+- i didn't know that the SSE would actually wait for a `data: ` formatted message other will not forward to webui: That is why i would get only the first line of the `result`
+  as from line 2 it would truncate everything.
+
+- **Fix**
+Have changed the way `result` is `yield` to send `data: ` for each lines
+

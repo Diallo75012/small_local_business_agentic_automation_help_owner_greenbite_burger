@@ -68,10 +68,19 @@ def stream_results():
               print(f"An error occurred while running the subprocess, agent result: {result}")
               raise Exception(f"An error occurred while running the subprocess, agent result: {result}")
             # use generator to keep sending live results to the frontend
-            print(f"data: {result}")
-            yield f"data: {result}\n\n"
+            # Note: "`SSE` (Server‐Sent Events) specification requires the server to prefix actual `data` lines with `data:`"
+            # `yield` the `result` fully replacing `\n` with `\ndata: ` to get each line captured with this mandataory `data: `
+            #print(f"data: {result.replace('\n', '\ndata: ')}")
+            #yield f"{result.replace('\n', '\ndata: ')}\n\n"
+            #sys.stdout.flush()
+            # OR yield each lines
+            for line in result.splitlines():
+              print(f"data: {line}")
+              yield f"data: {line}\n"
+              sys.stdout.flush()
+            yield "\n"
             sys.stdout.flush()
-
+            
         except Exception as e:
           print(f"An exception occured while running subprocess agentic workflow: {e}")
           yield f"data: error: An exception occured while running subprocess agentic workflow {str(e)}\n\n"

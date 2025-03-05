@@ -513,7 +513,7 @@ def write_miscellaneous_message_to_file_agent(state: MessagesState):
       # we check if we got a single string message and write to file
       if isinstance(last_message["miscellaneous"], str):
         time_recorded = datetime.now()
-        other_messages_file.write(f"{time_recorded} - {last_message['miscellaneous']}")
+        other_messages_file.write(f"{time_recorded} - {last_message['miscellaneous']}\n")
         return {
           "messages": [
             {"role": "ai", "content": json.dumps({"success": f"miscellaneous message written successfully to file {os.getenv('MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH')}"})}
@@ -523,7 +523,7 @@ def write_miscellaneous_message_to_file_agent(state: MessagesState):
       count = 1
       for message in last_message["miscellaneous"]:
         time_recorded = datetime.now()
-        other_messages_file.write(f"{count}/{len(last_message['miscellaneous'])}: {time_recorded}: {last_message['miscellaneous']}")
+        other_messages_file.write(f"{count}/{len(last_message['miscellaneous'])}: {time_recorded}: {last_message['miscellaneous']}\n")
         count += 1
       return {
         "messages": [

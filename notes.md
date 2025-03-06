@@ -866,6 +866,7 @@ div.style.visibility = 'none';
 ```
 
 # Next:
+- [] make the diagram: Create a diagram of the present Owner of Restaurant workflow and how many employees are forking along the way. And have a comparative diagram of the automation and own many positions have been saved. so money saved by the Owner
 - [] make the video demo and explanations
 
 # Project Road of Improvement Idea

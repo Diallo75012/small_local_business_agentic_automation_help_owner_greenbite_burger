@@ -809,9 +809,10 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
 
 
 # Next
-- [] create a node that would answer all questions from the enquiry database stored messages
-- [] incorporate to flask app routes with webui forms:
-  - [] one to start the simulation of fetching messages and storing to database
+- create a node that would answer all questions from the enquiry database stored messages WILL NOT DO IT FOR THIS PROJECT BUT CAN THINK ABOUT SOMETHING LIKE THAT TO IMPROVE AI AGENT HELP: **maybe can add a node in the agent flow that would use RAG to pre-answer all message enquiries before sending to discord the enquiry and proposed answer coming from stored collection vector business information that would also update when new enquiry message is answered.**
+
+- [x] incorporate to flask app routes with webui forms:
+  - [x] one to start the simulation of fetching messages and storing to database
   - [x] the other to start the bucket new message listener which will start agents if needed to
 
 # frontend feautres
@@ -864,6 +865,11 @@ div.style.display = 'none';
 div.style.visibility = 'none';
 ```
 
+# Next:
+- [] make the video demo and explanations
+
+# Project Road of Improvement Idea
+- **maybe can add a node in the agent flow that would use RAG to pre-answer all message enquiries before sending to discord the enquiry and proposed answer coming from stored collection vector business information that would also update when new enquiry message is answered.**
 
 
 

@@ -105,5 +105,7 @@ What are your ideas? Here you get a nice boilerplate that you can plug in with a
 The Idea Here Is For A Free System Running Continously
 (Where maybe some more logging and system monitoring and improvement could be implemented but out of the subject of what this repo want to show)
 
+# Project Road of Improvement Idea
+- **maybe can add a node in the agent flow that would use RAG to pre-answer all message enquiries before sending to discord the enquiry and proposed answer coming from stored collection vector business information that would also update when new enquiry message is answered.**
 
 Hope That You Liked This Idea!

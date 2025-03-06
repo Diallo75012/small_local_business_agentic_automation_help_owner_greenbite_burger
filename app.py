@@ -91,6 +91,70 @@ def stream_results():
     sys.stdout.flush()
     # Allow message to be received before closing
     time.sleep(1)
+    # exit the while loop
+    break
+
+def simulation_incoming_messages_from_different_sources():
+  last_sent_time = time.time()
+  
+  while True:
+    # ✅ Send heartbeat every 10 seconds to keep connection open
+    if time.time() - last_sent_time > 10:
+      yield "data: heartbeat\n\n"
+      sys.stdout.flush()
+      last_sent_time = time.time()
+
+    try:
+      # command need to be in a list with the first argument being the executable (here `python3`)
+      # returns `str`: `empty`(no more messages to fetch), `success`(all new messages have been fetched), `error`(an error occured)
+      commands = ["python3", "simulation_incoming_messages_run.py"]
+        
+      # start the `subprocess` `ThreadPool` with max "3" workers executors for this tuto
+      with concurrent.futures.ThreadPoolExecutor(max_workers=int(os.getenv("WORKERS"))) as executor:
+        results = executor.map(run_command, [commands])
+      print("Results: ", results)
+
+      for result in results:
+        print("Result: ", result)
+        # if `error`
+        if "error" in result:
+          print(f"An error occurred while running the subprocess, fetch_messages_and_store result: {result}")
+          for line in result.splitlines():
+            yield f"data: {line}\n"
+            sys.stdout.flush()
+          yield "\n"
+          sys.stdout.flush()
+        elif "success" in result:
+          print(f"Successfully fetched incoming new messages and stored result: {result}")
+          for line in result.splitlines():
+            yield f"data: {line}\n"
+            sys.stdout.flush()
+          yield "\n"
+          sys.stdout.flush()
+        elif "empty" in result:
+          print(f"No incoming new messages to fetch: {result}")
+          for line in result.splitlines():
+            yield f"data: {line}\n"
+            sys.stdout.flush()
+          yield "\n"
+          sys.stdout.flush()
+        else:
+          print("error while looking for incoming messages, no `empty`, `error` nor `success` in result")
+          yield f"data: error incoming messages.\n"
+          sys.stdout.flush()
+
+    except Exception as e:
+      print(f"An exception occured while running subprocess agentic workflow: {e}")
+      yield f"data: error: An exception occured while running subprocess simutating incoming messages workflow {str(e)}\n\n"
+      sys.stdout.flush()
+  
+    # Signal JavaScript that process is finished
+    yield "data: done\n\n"
+    sys.stdout.flush()
+    # Allow message to be received before closing
+    time.sleep(1)
+    # exit the while loop
+    break
 
 def run_command(cmd: List[str]):
   proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -114,6 +178,13 @@ def greenbite_messages_automation():
 @app.route('/greenbite-messages-automation-stream', methods=['GET'])
 def greenbite_messages_automation_stream():
   return Response(stream_results(), content_type="text/event-stream")
+
+# this route will be simulating the constant incoming messages from different sources (Whatsapp, SMS, Instragram DMs...)
+# the helper functions returns `empty`(no more messages to fetch), `success`(all new messages have been fetched), `error`(an error occured)
+# javascript side is going to be handling those returned values 
+@app.route('/simulate-message-received', methods=['GET'])
+def simulate_message_received():
+  return Response(simulation_incoming_messages_from_different_sources(), content_type="text/event-stream")
 
 if __name__ == '__main__':
   app.run(debug=True, threaded=True, host='0.0.0.0')

@@ -1,8 +1,9 @@
-LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER='8'
+LAST_MESSAGE_FETCHED_FROM_MESSAGES_BUCKET_ID_TRACKER='0'
 WORKERS='3'
 # 5mn process timeout
 PROCESS_TIMEOUT='300'
 MESSAGES_RECEIVED_CSV_FILE='dataset_cleaned.csv'
+# this the index of simulated incoming messages `Pandas df` one and not the `CSV` one
 MESSAGE_INDEX_TRACKER='0'
 SIMILARITY_THRESHOLD='0.7'
 START_TIME_SECONDS_RANGE='10.5'
@@ -21,5 +22,6 @@ CACHE_KEYS='["the_mediterranean_burger", "grilled_veggie_&_hummus_wrap", "chicke
 # USER_INITIAL_QUERY='hi there, i would like to order one Kale & Quinoa Super Salad please'
 THREAD_ID='33'
 MISCELLANEOUS_MESSAGES_FILE_RECORD_PATH="./miscellaneous_messages_track_record/miscallaneous_messages_records.md"
-USER_INITIAL_QUERY='I have an enquiry about the oder number 23749, I need to add one more item, how can i proceed? do i need to reorder?'
-STATE_UPDATE_OTHER='{"other": "I have an enquiry about the oder number 23749, I need to add one more item, how can i proceed? do i need to reorder?"}'
+# Dynamically set by application
+USER_INITIAL_QUERY='Can I order a pork burger with bacon?'
+STATE_UPDATE_OTHER='{"other": "Can I order a pork burger with bacon?"}'

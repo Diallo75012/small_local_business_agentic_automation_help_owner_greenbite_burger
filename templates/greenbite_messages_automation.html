@@ -10,14 +10,31 @@
   <div class="container">
     <div class="sidebar">
       <h1>GreenBite Burger (GBB)</h1>
-      <button id="start-processing">SAVE MY TIME PROCESSING MESSAGES</button>
+      <br>
+      <h3>Tutorial</h3>
+      <ul>
+        <li>Start the Incoming messages fetcher.</li>
+        <li>Start the Order Sorter AI agent.</li>
+        <li>Go To Discord To Get Sorted Messages.</li>
+        <li>Come Back To Read Here Logs.</li>
+      </ul>
+      <br>
+      <h3>Start Smart Jobs - Save Time</h3>
+      <button id="start-incoming-messages-simulation">Fetch New Incoming Messages</button>
+      <button id="start-processing">Start AI Agent Messages Processor</button>
+      <h3>Move: Top - Middle - Bottom</h3>
       <button id="scroll-top">Scroll to Top</button>
       <button id="scroll-mid">Scroll to Middle</button>
       <button id="scroll-bottom">Scroll to Bottom</button>
     </div>
     <div class="main-content">
-      <h2>Result Report</h2>
+      <h2>Result AI Agent Log Report</h2>
       <div id="result-report" class="result-container"></div>
+      <div class="sub-main-content">
+        <h2>Result New Messages Incoming</h2>
+        <div id="result-simulation-incoming-messages" class="result-simulation-incoming-messages-container">
+      </div>
+    </div>
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>

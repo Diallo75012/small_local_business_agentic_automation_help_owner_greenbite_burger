@@ -849,3 +849,21 @@ I have been tweeking the `Javascript` code but the problem what more about how t
 - **Fix**
 Have changed the way `result` is `yield` to send `data: ` for each lines
 
+
+# Javascript reminder
+- concatenate any string variable inside another variable string using '``' to enclose the string and put the variable inside using `${variable}`
+```javascript
+const name = 'Alice';
+const age = 30;
+console.log(`My name is ${name} and I am ${age} years old.`);
+```
+- make `div` visible/invisible:
+```javascript
+div = documentGetElementById("example-div")
+div.style.display = 'none';
+div.style.visibility = 'none';
+```
+
+
+
+

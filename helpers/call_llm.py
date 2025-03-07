@@ -21,7 +21,7 @@ from helpers.formatters import string_to_dict
 # to run next graphs
 from llms.llms import (
   groq_llm_mixtral_7b,
-  groq_llm_mixtral_larger,
+  groq_llm_mistral_saba_24b,
   groq_llm_llama3_70b_versatile,
 )
 # for env. vars

@@ -866,7 +866,7 @@ div.style.visibility = 'none';
 ```
 
 # Next:
-- [] make the diagram: Create a diagram of the present Owner of Restaurant workflow and how many employees are forking along the way. And have a comparative diagram of the automation and own many positions have been saved. so money saved by the Owner
+- [x] make the diagram: Create a diagram of the present Owner of Restaurant workflow and how many employees are forking along the way. And have a comparative diagram of the automation and own many positions have been saved. so money saved by the Owner: [Project Diagram](https://excalidraw.com/#json=QUXbL1RgilL4o7XjPEXI8,XdHTvBR_Be1YS19pzqgttQ)
 - [] make the video demo and explanations
 
 # Project Road of Improvement Idea
